@@ -1,0 +1,15 @@
+<div class="mb-3">
+    <label for="{{fieldName}}" class="form-label">{{fieldLabel}}</label>
+    <input type="file" name="{{fieldName}}" id="{{fieldName}}" class="form-control @error('{{fieldName}}') is-invalid @enderror">
+    @error('{{fieldName}}')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+    {{-- Basic preview for existing image --}}
+    @if(isset(${{modelVarName}}->{{fieldName}}) && ${{modelVarName}}->{{fieldName}} && Str::is(['*.jpg', '*.jpeg', '*.png', '*.gif', '*.svg', '*.webp'], strtolower(${{modelVarName}}->{{fieldName}})))
+        <div class="mt-2">
+            <img src="{{ asset('storage/' . ${{modelVarName}}->{{fieldName}}) }}" alt="{{fieldLabel}}" style="max-height: 100px; border-radius: 0.25rem;">
+        </div>
+    @elseif(isset(${{modelVarName}}->{{fieldName}}) && ${{modelVarName}}->{{fieldName}})
+         <div class="mt-2">Current file: <a href="{{ asset('storage/' . ${{modelVarName}}->{{fieldName}}) }}" target="_blank">{{ ${{modelVarName}}->{{fieldName}} }}</a></div>
+    @endif
+</div>

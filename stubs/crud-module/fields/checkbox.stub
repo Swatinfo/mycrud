@@ -1,0 +1,8 @@
+<div class="mb-3 form-check">
+    <input type="hidden" name="{{fieldName}}" value="0"> {{-- Hidden input for unchecked value --}}
+    <input type="checkbox" name="{{fieldName}}" id="{{fieldName}}" class="form-check-input @error('{{fieldName}}') is-invalid @enderror" value="1" {{ (old('{{fieldName}}', ${{modelVarName}}->{{fieldName}} ?? 0) == 1) ? 'checked' : '' }}>
+    <label for="{{fieldName}}" class="form-check-label">{{fieldLabel}}</label>
+    @error('{{fieldName}}')
+        <div class="invalid-feedback d-block">{{ $message }}</div>
+    @enderror
+</div>

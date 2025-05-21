@@ -1,0 +1,29 @@
+<?php
+
+namespace {{namespace}}\Events;
+
+use {{namespace}}\Models\{{modelName}};
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class {{modelDeletedEvent}}
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public {{modelName}} ${{modelNameSingularLowerCase}};
+    public bool $isForceDelete;
+
+    /**
+     * Create a new event instance.
+     *
+     * @param \{{namespace}}\Models\{{modelName}} ${{modelNameSingularLowerCase}} The model instance before it's (soft or force) deleted
+     * @param bool $isForceDelete True if it was a force delete, false for soft delete
+     * @return void
+     */
+    public function __construct({{modelName}} ${{modelNameSingularLowerCase}}, bool $isForceDelete = false)
+    {
+        $this->{{modelNameSingularLowerCase}} = ${{modelNameSingularLowerCase}};
+        $this->isForceDelete = $isForceDelete;
+    }
+}

@@ -1,0 +1,15 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use {{namespace}}\Http\Controllers\Web\{{modelName}}Controller;
+
+Route::prefix('{{webRoutePrefix}}')->name('{{routeNamePrefix}}.')->group(function () {
+    Route::get('/trashed', [{{modelName}}Controller::class, 'trashed'])->name('trashed'); // New route for trashed items
+    Route::post('/{id}/restore', [{{modelName}}Controller::class, 'restore'])->name('restore'); // For soft delete restore
+    Route::delete('/{id}/force-delete', [{{modelName}}Controller::class, 'forceDelete'])->name('forceDelete'); // For permanent delete
+});
+
+Route::resource('{{webRoutePrefix}}', {{modelName}}Controller::class)
+    ->names('{{routeNamePrefix}}')
+    // ->middleware(['auth']);
+    ;

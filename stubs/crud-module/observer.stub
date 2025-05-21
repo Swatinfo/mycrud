@@ -1,0 +1,115 @@
+<?php
+
+namespace {{namespace}}\Observers;
+
+use {{namespace}}\Models\{{modelName}};
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+
+class {{observerName}}
+{
+    /**
+     * Handle the {{modelName}} "created" event.
+     *
+     * @param  \{{namespace}}\Models\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return void
+     */
+    public function created({{modelName}} ${{modelNameSingularLowerCase}})
+    {
+        $this->logActivity('created', ${{modelNameSingularLowerCase}});
+    }
+
+    /**
+     * Handle the {{modelName}} "updated" event.
+     *
+     * @param  \{{namespace}}\Models\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return void
+     */
+    public function updated({{modelName}} ${{modelNameSingularLowerCase}})
+    {
+        // Get original attributes to find changes
+        // $original = ${{modelNameSingularLowerCase}}->getOriginal();
+        // $changes = array_diff_assoc(${{modelNameSingularLowerCase}}->getAttributes(), $original);
+        // unset($changes['updated_at']); // Don't log updated_at timestamp change itself
+        // if (empty($changes)) return; // No actual change to log
+
+        $this->logActivity('updated', ${{modelNameSingularLowerCase}}/*, $changes*/);
+    }
+
+    /**
+     * Handle the {{modelName}} "deleted" event.
+     *
+     * @param  \{{namespace}}\Models\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return void
+     */
+    public function deleted({{modelName}} ${{modelNameSingularLowerCase}})
+    {
+        // If soft delete, this is for soft delete. If not, it's permanent.
+        $action = method_exists(${{modelNameSingularLowerCase}}, 'isForceDeleting') && ${{modelNameSingularLowerCase}}->isForceDeleting() ? 'force deleted' : 'deleted (soft)';
+        $this->logActivity($action, ${{modelNameSingularLowerCase}});
+    }
+
+    /**
+     * Handle the {{modelName}} "restored" event.
+     *
+     * @param  \{{namespace}}\Models\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return void
+     */
+    public function restored({{modelName}} ${{modelNameSingularLowerCase}})
+    {
+        $this->logActivity('restored', ${{modelNameSingularLowerCase}});
+    }
+
+    /**
+     * Handle the {{modelName}} "force deleted" event.
+     *
+     * @param  \{{namespace}}\Models\{{modelName}}  ${{modelNameSingularLowerCase}}
+     * @return void
+     */
+    public function forceDeleted({{modelName}} ${{modelNameSingularLowerCase}})
+    {
+        $this->logActivity('force deleted', ${{modelNameSingularLowerCase}});
+    }
+
+    /**
+     * Log activity to a central logging system or database.
+     *
+     * @param string $action
+     * @param {{modelName}} ${{modelNameSingularLowerCase}}
+     * @param array|null $changes
+     * @return void
+     */
+    protected function logActivity(string $action, {{modelName}} ${{modelNameSingularLowerCase}}, ?array $changes = null)
+    {
+        $userId = Auth::id();
+        $userName = Auth::check() ? Auth::user()->name : 'System'; // Or some other identifier for console commands
+
+        $message = "User {$userName} (ID: {$userId}) {$action} {{modelName}} (ID: {${{modelNameSingularLowerCase}}->id}).";
+
+        // TODO: Implement more sophisticated logging, e.g., to a database table 'audit_logs'
+        // Consider using a package like owen-it/laravel-auditing
+        // Example:
+        // AuditLog::create([
+        //     'user_id' => $userId,
+        //     'action' => $action,
+        //     'auditable_id' => ${{modelNameSingularLowerCase}}->id,
+        //     'auditable_type' => get_class(${{modelNameSingularLowerCase}}),
+        //     'old_values' => $action === 'updated' ? json_encode(${{modelNameSingularLowerCase}}->getOriginal()) : null,
+        //     'new_values' => $action !== 'deleted (soft)' && $action !== 'force deleted' ? json_encode(${{modelNameSingularLowerCase}}->getAttributes()) : null,
+        //     'url' => request()->fullUrl(),
+        //     'ip_address' => request()->ip(),
+        //     'user_agent' => request()->userAgent(),
+        // ]);
+
+        Log::channel('audit')->info($message, [ // Assuming an 'audit' channel is configured in logging.php
+            'user_id' => $userId,
+            'user_name' => $userName,
+            'model_id' => ${{modelNameSingularLowerCase}}->id,
+            'model_type' => get_class(${{modelNameSingularLowerCase}}),
+            'action' => $action,
+            'changes' => $changes, // Only for 'updated' usually
+            'ip_address' => request()->ip(),
+            'url' => request()->fullUrl(),
+        ]);
+    }
+}

@@ -1,0 +1,5 @@
+{{-- This form partial is used by create.blade.php and edit.blade.php --}}
+{{-- Variable ${{modelVarName}} is expected to be passed to this view --}}
+{{-- For create, pass new \{{namespace}}\Models\{{modelName}}(), for edit, pass the existing ${{modelVarName}} --}}
+
+{{formFields}}

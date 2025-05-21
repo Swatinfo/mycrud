@@ -1,0 +1,189 @@
+<?php
+
+namespace {{namespace}}\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use {{namespace}}\Models\{{modelName}};
+use {{namespace}}\Http\Requests\{{modelName}}Request;
+use {{namespace}}\Http\Resources\{{modelName}}Resource;
+{{useService}}
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Gate;
+use Symfony\Component\HttpFoundation\Response;
+
+/**
+ * @OA\Tag(name="{{modelNamePlural}}", description="API Endpoints for {{modelNamePlural}}")
+ */
+class {{modelName}}Controller extends Controller
+{
+    {{serviceVariable}}
+
+    public function __construct({{serviceInjection}})
+    {
+        {{serviceAssignment}}
+        // $this->middleware('auth:sanctum')->except(['index', 'show']);
+        // $this->authorizeResource(\{{namespace}}\Models\{{modelName}}::class, '{{modelNameSingularLowerCase}}');
+    }
+
+    /**
+     * @OA\Get(
+     * path="/api/{{apiRoutePrefix}}", operationId="get{{modelNamePlural}}List", tags={"{{modelNamePlural}}"}, summary="List {{modelNamePluralLowerCase}}",
+     * security={{"sanctum":{}}},
+     * @OA\Parameter(name="page", in="query", required=false, @OA\Schema(type="integer", default=1)),
+     * @OA\Parameter(name="per_page", in="query", required=false, @OA\Schema(type="integer", default=15)),
+     * @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
+     * @OA\Parameter(name="sort_by", in="query", required=false, @OA\Schema(type="string")),
+     * @OA\Parameter(name="sort_direction", in="query", required=false, @OA\Schema(type="string", enum={"asc", "desc"}, default="desc")),
+     * @OA\Parameter(name="trashed", in="query", description="Filter by soft delete state (e.g., 'only', 'with', 'without')", required=false, @OA\Schema(type="string", enum={"only", "with", "without"})),
+     * @OA\Response(response=200, description="Success", @OA\JsonContent(type="object", @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/{{modelName}}Resource")), @OA\Property(property="links", ref="#/components/schemas/PaginationLinks"), @OA\Property(property="meta", ref="#/components/schemas/PaginationMeta"))),
+     * @OA\Response(response=500, description="Server Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
+    public function index(Request $request): JsonResponse
+    {
+        try {
+            $filters = $request->only(['search', 'status', 'sort_by', 'sort_direction', 'trashed']);
+            $perPage = $request->input('per_page', 15);
+            // TODO: Ensure service's getAllPaginated handles 'trashed' filter
+            ${{modelNamePluralLowerCase}} = {{serviceCallGetAllApi}};
+            return {{modelName}}Resource::collection(${{modelNamePluralLowerCase}})->response();
+        } catch (\Exception $e) {
+            Log::error("API Error fetching {{modelNamePluralLowerCase}}: " . $e->getMessage(), ['exception' => $e, 'filters' => $request->all()]);
+            return response()->json(['message' => 'Error retrieving {{modelNamePluralLowerCase}}.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     * path="/api/{{apiRoutePrefix}}", operationId="store{{modelName}}", tags={"{{modelNamePlural}}"}, summary="Create {{modelNameSingularLowerCase}}",
+     * security={{"sanctum":{}}},
+     * @OA\RequestBody(required=true, @OA\JsonContent(ref="#/components/schemas/{{modelName}}Request")),
+     * @OA\Response(response=201, description="Created", @OA\JsonContent(ref="#/components/schemas/{{modelName}}Resource")),
+     * @OA\Response(response=422, description="Validation Error", @OA\JsonContent(ref="#/components/schemas/ValidationErrorResponse")),
+     * @OA\Response(response=500, description="Server Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
+    public function store({{modelName}}Request $request): JsonResponse
+    {
+        try {
+            ${{modelNameSingularLowerCase}} = {{serviceCallCreateApi}};
+            return (new {{modelName}}Resource(${{modelNameSingularLowerCase}}->loadMissing(/* relationships */)))
+                        ->response()->setStatusCode(Response::HTTP_CREATED);
+        } catch (\Exception $e) { /* ... error handling ... */
+            Log::error("API Error creating {{modelName}}: " . $e->getMessage(), ['request_data' => $request->validated(), 'exception' => $e]);
+            return response()->json(['message' => 'Failed to create {{modelName}}.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * @OA\Get(
+     * path="/api/{{apiRoutePrefix}}/{id}", operationId="get{{modelName}}ById", tags={"{{modelNamePlural}}"}, summary="Get {{modelNameSingularLowerCase}}",
+     * security={{"sanctum":{}}},
+     * @OA\Parameter(name="id", required=true, in="path", @OA\Schema(type="integer")),
+     * @OA\Response(response=200, description="Success", @OA\JsonContent(ref="#/components/schemas/{{modelName}}Resource")),
+     * @OA\Response(response=404, description="Not Found", @OA\JsonContent(ref="#/components/schemas/ErrorResponse")),
+     * @OA\Response(response=500, description="Server Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
+    public function show(string $id): JsonResponse // Changed to string to handle withTrashed from service
+    {
+        try {
+            // Assuming service's getById can handle finding trashed items if needed, or add a query param
+            ${{modelNameSingularLowerCase}} = $this->{{modelNameSingularLowerCase}}Service->getById($id, [], request()->has('with_trashed'));
+            return (new {{modelName}}Resource(${{modelNameSingularLowerCase}}->loadMissing(/* relationships */)))->response();
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['message' => '{{modelName}} not found.'], Response::HTTP_NOT_FOUND);
+        } catch (\Exception $e) { /* ... error handling ... */
+            Log::error("API Error showing {{modelName}} {$id}: " . $e->getMessage(), ['exception' => $e]);
+            return response()->json(['message' => 'Error retrieving {{modelName}}.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * @OA\Put(
+     * path="/api/{{apiRoutePrefix}}/{id}", operationId="update{{modelName}}", tags={"{{modelNamePlural}}"}, summary="Update {{modelNameSingularLowerCase}}",
+     * security={{"sanctum":{}}},
+     * @OA\Parameter(name="id", required=true, in="path", @OA\Schema(type="integer")),
+     * @OA\RequestBody(required=true, @OA\JsonContent(ref="#/components/schemas/{{modelName}}Request")),
+     * @OA\Response(response=200, description="Success", @OA\JsonContent(ref="#/components/schemas/{{modelName}}Resource")),
+     * @OA\Response(response=404, description="Not Found", @OA\JsonContent(ref="#/components/schemas/ErrorResponse")),
+     * @OA\Response(response=422, description="Validation Error", @OA\JsonContent(ref="#/components/schemas/ValidationErrorResponse")),
+     * @OA\Response(response=500, description="Server Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
+    public function update({{modelName}}Request $request, string $id): JsonResponse
+    {
+        try {
+            ${{modelNameSingularLowerCase}} = {{serviceCallUpdateApi}}; // Service's update should use getById which can find non-trashed
+            return (new {{modelName}}Resource(${{modelNameSingularLowerCase}}->loadMissing(/* relationships */)))->response();
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['message' => '{{modelName}} not found.'], Response::HTTP_NOT_FOUND);
+        } catch (\Exception $e) { /* ... error handling ... */
+            Log::error("API Error updating {{modelName}} {$id}: " . $e->getMessage(), ['request_data' => $request->validated(), 'exception' => $e]);
+            return response()->json(['message' => 'Failed to update {{modelName}}.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * @OA\Delete(
+     * path="/api/{{apiRoutePrefix}}/{id}", operationId="delete{{modelName}}", tags={"{{modelNamePlural}}"}, summary="Delete {{modelNameSingularLowerCase}} (Soft Delete)",
+     * security={{"sanctum":{}}},
+     * @OA\Parameter(name="id", required=true, in="path", @OA\Schema(type="integer")),
+     * @OA\Parameter(name="force", in="query", description="Set to true to force delete permanently", required=false, @OA\Schema(type="boolean")),
+     * @OA\Response(response=204, description="Successfully deleted"),
+     * @OA\Response(response=404, description="Not Found", @OA\JsonContent(ref="#/components/schemas/ErrorResponse")),
+     * @OA\Response(response=500, description="Server Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        try {
+            if ($request->query('force', false)) {
+                $this->{{modelNameSingularLowerCase}}Service->forceDelete($id);
+            } else {
+                $this->{{modelNameSingularLowerCase}}Service->delete($id); // Soft delete
+            }
+            return response()->json(null, Response::HTTP_NO_CONTENT);
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['message' => '{{modelName}} not found.'], Response::HTTP_NOT_FOUND);
+        } catch (\Exception $e) { /* ... error handling ... */
+            Log::error("API Error deleting {{modelName}} {$id}: " . $e->getMessage(), ['exception' => $e]);
+            return response()->json(['message' => 'Failed to delete {{modelName}}.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     * path="/api/{{apiRoutePrefix}}/{id}/restore", operationId="restore{{modelName}}", tags={"{{modelNamePlural}}"}, summary="Restore soft-deleted {{modelNameSingularLowerCase}}",
+     * security={{"sanctum":{}}},
+     * @OA\Parameter(name="id", required=true, in="path", @OA\Schema(type="integer")),
+     * @OA\Response(response=200, description="Successfully restored", @OA\JsonContent(ref="#/components/schemas/{{modelName}}Resource")),
+     * @OA\Response(response=404, description="Not Found or not trashed", @OA\JsonContent(ref="#/components/schemas/ErrorResponse")),
+     * @OA\Response(response=500, description="Server Error", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
+    public function restore(string $id): JsonResponse
+    {
+        try {
+            $this->{{modelNameSingularLowerCase}}Service->restore($id);
+            ${{modelNameSingularLowerCase}} = $this->{{modelNameSingularLowerCase}}Service->getById($id); // Get the restored model
+            return (new {{modelName}}Resource(${{modelNameSingularLowerCase}}))->response();
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['message' => '{{modelName}} not found or not in trash.'], Response::HTTP_NOT_FOUND);
+        } catch (\Exception $e) {
+            Log::error("API Error restoring {{modelName}} {$id}: " . $e->getMessage(), ['exception' => $e]);
+            return response()->json(['message' => 'Failed to restore {{modelName}}.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+}
+
+// Ensure OpenAPI schema definitions are accurate and complete
+/**
+ * @OA\Schema(schema="{{modelName}}Request", title="{{modelName}} Request Body", type="object", required={"field1"}, @OA\Property(property="example_field", type="string", example="Sample Value"))
+ * @OA\Schema(schema="ErrorResponse", title="Error Response", type="object", @OA\Property(property="message", type="string", example="Error message."))
+ * @OA\Schema(schema="ValidationErrorResponse", title="Validation Error Response", type="object", @OA\Property(property="message", type="string", example="The given data was invalid."), @OA\Property(property="errors", type="object", example={"field1": {"Error for field1."}}))
+ * @OA\Schema(schema="PaginationLinks", title="Pagination Links", type="object", @OA\Property(property="first", type="string", format="url"), @OA\Property(property="last", type="string", format="url"), @OA\Property(property="prev", type="string", format="url", nullable=true), @OA\Property(property="next", type="string", format="url", nullable=true))
+ * @OA\Schema(schema="PaginationMeta", title="Pagination Meta", type="object", @OA\Property(property="current_page", type="integer"), @OA\Property(property="from", type="integer", nullable=true), @OA\Property(property="last_page", type="integer"), @OA\Property(property="path", type="string", format="url"), @OA\Property(property="per_page", type="integer"), @OA\Property(property="to", type="integer", nullable=true), @OA\Property(property="total", type="integer"), @OA\Property(property="links", type="array", @OA\Items(type="object", @OA\Property(property="url", type="string", format="url", nullable=true), @OA\Property(property="label", type="string"), @OA\Property(property="active", type="boolean"))))
+ */

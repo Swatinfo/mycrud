@@ -1,0 +1,17 @@
+<div class="mb-3">
+    <label class="form-label">{{fieldLabel}}</label>
+    <div>
+        {{-- Example Radio Options - This stub needs more dynamic option generation logic or manual setup --}}
+        <div class="form-check form-check-inline">
+            <input class="form-check-input @error('{{fieldName}}') is-invalid @enderror" type="radio" name="{{fieldName}}" id="{{fieldName}}_option1" value="option1" {{ (old('{{fieldName}}', ${{modelVarName}}->{{fieldName}} ?? '') == 'option1') ? 'checked' : '' }}>
+            <label class="form-check-label" for="{{fieldName}}_option1">Option 1</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input @error('{{fieldName}}') is-invalid @enderror" type="radio" name="{{fieldName}}" id="{{fieldName}}_option2" value="option2" {{ (old('{{fieldName}}', ${{modelVarName}}->{{fieldName}} ?? '') == 'option2') ? 'checked' : '' }}>
+            <label class="form-check-label" for="{{fieldName}}_option2">Option 2</label>
+        </div>
+    </div>
+    @error('{{fieldName}}')
+        <div class="invalid-feedback d-block">{{ $message }}</div>
+    @enderror
+</div>

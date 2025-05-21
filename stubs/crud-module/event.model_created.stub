@@ -1,0 +1,26 @@
+<?php
+
+namespace {{namespace}}\Events;
+
+use {{namespace}}\Models\{{modelName}};
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class {{modelCreatedEvent}}
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public {{modelName}} ${{modelNameSingularLowerCase}};
+
+    /**
+     * Create a new event instance.
+     *
+     * @param \{{namespace}}\Models\{{modelName}} ${{modelNameSingularLowerCase}}
+     * @return void
+     */
+    public function __construct({{modelName}} ${{modelNameSingularLowerCase}})
+    {
+        $this->{{modelNameSingularLowerCase}} = ${{modelNameSingularLowerCase}};
+    }
+}

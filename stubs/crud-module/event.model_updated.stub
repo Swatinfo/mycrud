@@ -1,0 +1,29 @@
+<?php
+
+namespace {{namespace}}\Events;
+
+use {{namespace}}\Models\{{modelName}};
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class {{modelUpdatedEvent}}
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public {{modelName}} ${{modelNameSingularLowerCase}};
+    public array $originalAttributes; // To store attributes before update for auditing
+
+    /**
+     * Create a new event instance.
+     *
+     * @param \{{namespace}}\Models\{{modelName}} ${{modelNameSingularLowerCase}}
+     * @param array $originalAttributes Attributes of the model before the update
+     * @return void
+     */
+    public function __construct({{modelName}} ${{modelNameSingularLowerCase}}, array $originalAttributes = [])
+    {
+        $this->{{modelNameSingularLowerCase}} = ${{modelNameSingularLowerCase}};
+        $this->originalAttributes = $originalAttributes;
+    }
+}

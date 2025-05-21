@@ -1,0 +1,79 @@
+<?php
+
+namespace {{namespace}}\Providers;
+
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\File;
+use {{namespace}}\Models\{{modelName}}; // For Observer and Policy
+// use {{namespace}}\Policies\{{policyName}}; // If policy is generated
+// use {{namespace}}\Observers\{{observerName}}; // If observer is generated
+
+class {{moduleName}}ServiceProvider extends ServiceProvider
+{
+    protected string $moduleNamespace = '{{namespace}}';
+    protected string $modulePath;
+
+    protected $policies = [
+        {{policies}}
+        // \{{namespace}}\Models\{{modelName}}::class => \{{namespace}}\Policies\{{policyName}}::class,
+    ];
+
+    public function __construct($app)
+    {
+        parent::__construct($app);
+        $this->modulePath = base_path('Modules/{{moduleName}}');
+    }
+
+    public function register()
+    {
+        {{bindings}}
+        // $this->app->bind(\{{namespace}}\Contracts\{{serviceInterfaceName}}::class, \{{namespace}}\Services\{{serviceName}}::class);
+    }
+
+    public function boot()
+    {
+        $this->loadRoutes();
+        $this->loadMigrations();
+        $this->loadViews();
+        $this->registerPolicies();
+        $this->registerObservers(); // New method call
+    }
+
+    protected function loadRoutes(): void { /* ... (same as previous) ... */
+        if ({{hasWebRoutes}} && File::exists($this->modulePath . '/routes/web.php')) {
+            Route::middleware('web')
+                 ->namespace($this->moduleNamespace . '\\Http\\Controllers\\Web')
+                 ->group($this->modulePath . '/routes/web.php');
+        }
+
+        if ({{hasApiRoutes}} && File::exists($this->modulePath . '/routes/api.php')) {
+            Route::prefix(config('app.api_prefix', 'api'))
+                 ->middleware(config('app.api_middleware', ['api']))
+                 ->namespace($this->moduleNamespace . '\\Http\\Controllers\\Api')
+                 ->group($this->modulePath . '/routes/api.php');
+        }
+    }
+    protected function loadMigrations(): void { /* ... (same as previous) ... */ }
+    protected function loadViews(): void { /* ... (same as previous) ... */
+        if (File::isDirectory($this->modulePath . '/views')) {
+            $this->loadViewsFrom($this->modulePath . '/views', '{{moduleNamespaceKebab}}');
+        }
+    }
+    protected function registerPolicies(): void { /* ... (same as previous) ... */
+        foreach ($this->policies as $model => $policy) {
+            Gate::policy($model, $policy);
+        }
+    }
+
+    /**
+     * Register model observers for the module.
+     */
+    protected function registerObservers(): void
+    {
+        {{observers}}
+        // Example: if class_exists(\{{namespace}}\Observers\{{observerName}}::class)
+        //     {{modelName}}::observe(\{{namespace}}\Observers\{{observerName}}::class);
+    }
+}

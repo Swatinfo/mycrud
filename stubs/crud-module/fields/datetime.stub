@@ -1,0 +1,7 @@
+<div class="mb-3">
+    <label for="{{fieldName}}" class="form-label">{{fieldLabel}}</label>
+    <input type="datetime-local" name="{{fieldName}}" id="{{fieldName}}" class="form-control @error('{{fieldName}}') is-invalid @enderror" value="{{ old('{{fieldName}}', ${{modelVarName}}->{{fieldName}} ? (\${{modelVarName}}->{{fieldName}} instanceof \Carbon\Carbon ? \${{modelVarName}}->{{fieldName}}->format('Y-m-d\TH:i') : \${{modelVarName}}->{{fieldName}}) : '') }}">
+    @error('{{fieldName}}')
+        <div class="invalid-feedback">{{ $message }}</div>
+    @enderror
+</div>
