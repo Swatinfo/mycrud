@@ -36,9 +36,9 @@ class MakeCrudModuleCommand extends Command
     protected $generateObserver = false;
     protected $forceOverwrite = false;
 
-    protected $basePath;
+    protected $basePath; // This will be the dry-run path if --dry-run is used, otherwise the actual module path
     protected $stubsPath;
-    protected $actualModulesPath;
+    protected $actualModulesPath; // Always points to Modules/ModuleName
 
     public function handle()
     {
@@ -55,11 +55,12 @@ class MakeCrudModuleCommand extends Command
         $this->generateObserver = $this->option('observer');
         $this->forceOverwrite = $this->option('force');
 
+        // Define actualModulesPath regardless of dry-run for informational output
         $this->actualModulesPath = base_path('Modules/' . $this->moduleName);
         $this->stubsPath = base_path('stubs/crud-module');
 
         if ($this->isDryRun) {
-            $this->basePath = base_path('dryrun/' . $this->moduleName);
+            $this->basePath = base_path('dryrun/' . $this->moduleName); // basePath is for current operation
             $this->warn("Dry run mode: Files will be generated in: {$this->basePath}");
             if (!File::isDirectory(base_path('dryrun'))) {
                 File::makeDirectory(base_path('dryrun'), 0755, true, true);
@@ -68,7 +69,7 @@ class MakeCrudModuleCommand extends Command
                 File::deleteDirectory($this->basePath);
             }
         } else {
-            $this->basePath = $this->actualModulesPath;
+            $this->basePath = $this->actualModulesPath; // basePath is for current operation
             if (!File::isDirectory(base_path('Modules'))) {
                 File::makeDirectory(base_path('Modules'), 0755, true, true);
             }
@@ -117,8 +118,38 @@ class MakeCrudModuleCommand extends Command
     }
 
     protected function outputAutoloadingAndRegistrationInstructions()
-    { /* ... (same as previous version) ... */
+    {
         $this->newLine(2);
+        $this->line("<fg=blue>======================================================================</>");
+        $this->line("<fg=blue> MODULE GENERATION SUMMARY & NEXT STEPS FOR '{$this->moduleName}' </>");
+        $this->line("<fg=blue>======================================================================</>");
+        $this->newLine();
+
+        // Paths and Namespaces Information
+        $dryRunPathInfo = base_path('dryrun/' . $this->moduleName);
+        $dryRunNamespaceInfo = 'DryRun\\' . $this->moduleName;
+        $actualModulePathInfo = $this->actualModulesPath; // Already defined in handle()
+        $actualModuleNamespaceInfo = 'Modules\\' . $this->moduleName;
+
+        $this->line("<fg=magenta>--- Path & Namespace Information ---</>");
+        if ($this->isDryRun) {
+            $this->line("<fg=cyan>Current Operation (Dry Run):</>");
+            $this->line("  <options=bold>Generated Files Location:</> {$this->basePath}");
+            $this->line("  <options=bold>Generated Files Namespace Root:</> {$dryRunNamespaceInfo}");
+            $this->newLine();
+            $this->line("<fg=green>For Actual Module (if you proceed after dry run):</>");
+            $this->line("  <options=bold>Target Actual Module Path:</> {$actualModulePathInfo}");
+            $this->line("  <options=bold>Target Actual Module Namespace Root:</> {$actualModuleNamespaceInfo}");
+        } else {
+            $this->line("<fg=green>Current Operation (Actual Module Generation):</>");
+            $this->line("  <options=bold>Generated Files Location:</> {$this->basePath}"); // Same as actualModulePathInfo
+            $this->line("  <options=bold>Generated Files Namespace Root:</> {$actualModuleNamespaceInfo}");
+            $this->newLine();
+            $this->line("<fg=gray>(Dry Run would generate to: {$dryRunPathInfo} with namespace {$dryRunNamespaceInfo})</>");
+        }
+        $this->newLine();
+
+
         $this->warn("======================================================================");
         $this->warn(" IMPORTANT NEXT STEPS TO ACTIVATE MODULE '{$this->moduleName}' ");
         $this->warn("======================================================================");
@@ -129,7 +160,7 @@ class MakeCrudModuleCommand extends Command
             $this->line("<fg=cyan>To use it:</>");
             $this->line("<fg=yellow>  Step 1: Move Module</>");
             $this->line("     Move '{$this->moduleName}' from '{$this->basePath}'");
-            $this->line("     to your project's root 'Modules/' directory: " . base_path('Modules/' . $this->moduleName));
+            $this->line("     to your project's root 'Modules/' directory: " . $this->actualModulesPath);
             $this->newLine();
             $this->line("<fg=cyan>Then, whether moved or generated directly, follow these setup steps:</>");
             $this->newLine();
@@ -138,6 +169,8 @@ class MakeCrudModuleCommand extends Command
         $this->line("<fg=yellow>Step A: Configure PSR-4 Autoloading (if 'Modules/' isn't already)</>");
         $this->line("   In `composer.json`, under `\"autoload\"` -> `\"psr-4\"`, ensure:");
         $this->comment('     "Modules\\\\": "Modules/",');
+        $this->comment('     // If you were to use dry-run files directly (not typical for production):');
+        $this->comment('     // "DryRun\\\\": "dryrun/",');
         $this->newLine();
 
         $this->line("<fg=yellow>Step B: Update Composer's Autoloader</>");
@@ -145,8 +178,8 @@ class MakeCrudModuleCommand extends Command
         $this->newLine();
 
         $this->line("<fg=yellow>Step C: Register Service Provider</>");
-        $this->line("   In `config/app.php` -> `providers` array, add:");
-        $this->comment("     Modules\\{$this->moduleName}\\Providers\\{$this->moduleName}ServiceProvider::class,");
+        $this->line("   In `config/app.php` -> `providers` array, add for the actual module:");
+        $this->comment("     {$actualModuleNamespaceInfo}\\Providers\\{$this->moduleName}ServiceProvider::class,");
         $this->newLine();
 
         if ($this->generatePolicy) {
@@ -169,12 +202,13 @@ class MakeCrudModuleCommand extends Command
     }
 
     protected function generateModuleStructure()
-    { /* ... (same as previous version) ... */
+    {
         $paths = [
             $this->basePath . '/Http/Controllers/Web', $this->basePath . '/Http/Controllers/Api',
             $this->basePath . '/Http/Requests', $this->basePath . '/Http/Resources',
             $this->basePath . '/Models', $this->basePath . '/Providers', $this->basePath . '/routes',
-            $this->basePath . '/views/' . Str::kebab(Str::plural($this->modelName)),
+            // $this->basePath . '/views/' . Str::kebab(Str::plural($this->modelName)),
+            $this->basePath . '/views/',
             $this->basePath . '/database/migrations',
         ];
         if ($this->generateService) {
@@ -196,7 +230,7 @@ class MakeCrudModuleCommand extends Command
         }
     }
     protected function makeDirectory($path)
-    { /* ... (same as previous version) ... */
+    {
         if (!File::isDirectory($path)) {
             File::makeDirectory($path, 0755, true, true);
             $this->info("Created directory: {$path}");
@@ -205,20 +239,30 @@ class MakeCrudModuleCommand extends Command
         }
     }
     protected function getStubContent($stubName)
-    { /* ... (same as previous version) ... */
+    {
         $stubPath = $this->stubsPath . '/' . $stubName . '.stub';
+
+        $stubPath = str_replace('.stub.stub', ".stub", $stubPath);
+
         if (!File::exists($stubPath)) {
             if (str_starts_with($stubName, 'fields/')) {
                 $this->warn("Field stub not found: {$stubPath}. Falling back to basic text input for this field.");
                 return File::exists($this->stubsPath . '/fields/text.stub') ? File::get($this->stubsPath . '/fields/text.stub') : "<input type=\"text\" name=\"{{fieldName}}\" value=\"{{fieldValue}}\">";
             }
-            $this->error("Stub file not found: {$stubPath}");
+            // Handle cases where stubName might already contain .blade (e.g. for views/actions.blade)
+            if (Str::endsWith($stubName, '.blade')) {
+                $stubPath = $this->stubsPath . '/' . $stubName . '.stub'; // e.g. views/actions.blade.stub
+                if (File::exists($stubPath)) {
+                    return File::get($stubPath);
+                }
+            }
+            $this->error("Stub file not found: {$stubPath} (tried for {$stubName})");
             throw new \Exception("Stub not found: {$stubPath}");
         }
         return File::get($stubPath);
     }
     protected function writeFile($path, $content)
-    { /* ... (same as previous version) ... */
+    {
         if (File::exists($path) && !$this->forceOverwrite) {
             if (!$this->confirm("The file [{$path}] already exists. Do you want to overwrite it?")) {
                 $this->comment("Skipped file: {$path}");
@@ -228,21 +272,38 @@ class MakeCrudModuleCommand extends Command
         File::put($path, $content);
         $this->info("Created file: {$path}");
     }
+
     protected function getReplacements()
-    { /* ... (same as previous version) ... */
+    {
         $modelNameSingularLowerCase = Str::lower($this->modelName);
         $modelNamePluralLowerCase = Str::lower(Str::plural($this->modelName));
         $moduleNameKebab = Str::kebab($this->moduleName);
-        $rootModuleNamespace = 'Modules\\' . $this->moduleName;
+
+        // Conditionally define the root namespace for code generation
+        if ($this->isDryRun) {
+            $rootModuleNamespaceForGeneration = 'DryRun\\' . $this->moduleName;
+        } else {
+            $rootModuleNamespaceForGeneration = 'Modules\\' . $this->moduleName;
+        }
+        // Namespace for referencing the actual model, even in dry run (e.g. for Policy)
+        $actualModelNamespace = 'Modules\\' . $this->moduleName . '\\Models\\' . $this->modelName;
+
+
         return [
-            '{{namespace}}' => $rootModuleNamespace,
+            '{{namespace}}' => $rootModuleNamespaceForGeneration, // Used for the 'namespace' line in generated files
             '{{moduleName}}' => $this->moduleName,
             '{{modelName}}' => $this->modelName,
+            '{{modelFullName}}' => $rootModuleNamespaceForGeneration . '\\Models\\' . $this->modelName, // Namespace of the model being generated
+            '{{actualModelFullName}}' => $actualModelNamespace, // Always Modules\...\Models for policy target etc.
             '{{modelNamePlural}}' => Str::plural($this->modelName),
             '{{modelNameSingularLowerCase}}' => $modelNameSingularLowerCase,
             '{{modelNamePluralLowerCase}}' => $modelNamePluralLowerCase,
             '{{tableName}}' => $this->tableName,
-            '{{viewPath}}' => $moduleNameKebab . '::' . $modelNamePluralLowerCase,
+            // viewPath should refer to the alias that will be used by the application to load views.
+            // This alias is typically registered by the module's service provider.
+            // For dry-run, the files are in dryrun/..., but they'd be moved to Modules/... for actual use.
+            // So, the view path in code should reflect the final 'Modules' structure.
+            '{{viewPath}}' => $moduleNameKebab . '::' . Str::kebab(Str::plural($this->modelName)),
             '{{routeNamePrefix}}' => $moduleNameKebab . '.' . $modelNamePluralLowerCase,
             '{{apiRouteNamePrefix}}' => 'api.' . $moduleNameKebab . '.' . $modelNamePluralLowerCase,
             '{{webRoutePrefix}}' => $modelNamePluralLowerCase,
@@ -252,14 +313,14 @@ class MakeCrudModuleCommand extends Command
             '{{serviceInterfaceName}}' => $this->modelName . 'ServiceInterface',
             '{{policyName}}' => $this->modelName . 'Policy',
             '{{observerName}}' => $this->modelName . 'Observer',
-            '{{eventNamespace}}' => $rootModuleNamespace . '\\Events',
+            '{{eventNamespace}}' => $rootModuleNamespaceForGeneration . '\\Events',
             '{{modelCreatedEvent}}' => $this->modelName . 'Created',
             '{{modelUpdatedEvent}}' => $this->modelName . 'Updated',
             '{{modelDeletedEvent}}' => $this->modelName . 'Deleted',
         ];
     }
     protected function populateStub($stubName, $replacements)
-    { /* ... (same as previous version) ... */
+    {
         $stub = $this->getStubContent($stubName);
         return str_replace(array_keys($replacements), array_values($replacements), $stub);
     }
@@ -304,13 +365,20 @@ class MakeCrudModuleCommand extends Command
         $columns = $this->getTableColumns();
         $fillable = [];
         $casts = [];
-        $dates = ["'deleted_at'"];
+        $dates = ["'deleted_at'"]; // SoftDeletes trait adds 'deleted_at' to $dates automatically if not present
         $relationships = [];
-        $uses = ["use Illuminate\\Database\\Eloquent\\SoftDeletes;"];
-        $dispatchesEvents = '';
-        $rootModuleModelsNamespace = 'Modules\\' . $this->moduleName . '\\Models';
+        $uses = ["use Illuminate\\Database\\Eloquent\\SoftDeletes;"]; // Default
+        // $uses[] = "use Illuminate\\Database\\Eloquent\\Factories\\HasFactory;"; // Default
 
-        $fillable[] = "'deleted_at' => 'datetime'";
+        $replacementsGlobal = $this->getReplacements();
+        $currentGeneratingModelNamespace = $replacementsGlobal['{{namespace}}'] . '\\Models';
+
+
+        $fillable[] = "'deleted_at' => 'datetime'"; // This is not standard for $fillable, more for $casts if needed.
+        // $fillable is usually just column names.
+        // SoftDeletes handles deleted_at automatically.
+        // Let's remove this and rely on SoftDeletes trait.
+        $fillable = []; // Resetting, as deleted_at is handled by SoftDeletes.
 
         if (!empty($columns)) {
             foreach ($columns as $columnName) {
@@ -325,25 +393,32 @@ class MakeCrudModuleCommand extends Command
                     } elseif ($columnType === 'json') {
                         $casts[] = "'{$columnName}' => 'array'";
                     } elseif (in_array($columnType, ['boolean', 'tinyint'])) {
+                        // Check if tinyint(1) convention is used for boolean
+                        if ($columnType === 'tinyint') {
+                            // This is a heuristic. True boolean detection needs more info or Doctrine.
+                            $this->comment("Column '{$columnName}' is tinyint, assuming boolean for casting. Adjust if needed.");
+                        }
                         $casts[] = "'{$columnName}' => 'boolean'";
                     }
                 }
 
-                if (Str::endsWith($columnName, '_id')) {
+                if (Str::endsWith($columnName, '_id') && $columnName !== 'id') {
                     $relatedModel = Str::studly(Str::singular(str_replace('_id', '', $columnName)));
                     $relationName = Str::camel(Str::singular(str_replace('_id', '', $columnName)));
-                    $relatedFQN = $this->findRelatedModelFQN($relatedModel, $rootModuleModelsNamespace);
+                    // Pass the namespace where the *current model being generated* will reside
+                    $relatedFQN = $this->findRelatedModelFQN($relatedModel, $currentGeneratingModelNamespace);
                     if ($relatedFQN) {
-                        $classForUse = $this->getClassForUse($relatedFQN, $rootModuleModelsNamespace, $uses);
+                        $classForUse = $this->getClassForUse($relatedFQN, $currentGeneratingModelNamespace, $uses);
                         $relationships[] = "public function {$relationName}()\n    {\n        return \$this->belongsTo({$classForUse}::class, '{$columnName}');\n    }";
                     }
                 }
             }
         }
 
-        $this->detectOtherRelationshipsSimplified($relationships, $uses, $rootModuleModelsNamespace);
+        $this->detectOtherRelationshipsSimplified($relationships, $uses, $currentGeneratingModelNamespace);
 
-        if ($this->generateEvents) { /* ... (same as previous) ... */
+        $dispatchesEvents = '';
+        if ($this->generateEvents) {
             $eventReplacements = $this->getReplacements();
             $dispatchesEventsLines = [
                 "'created' => ".$eventReplacements['{{modelCreatedEvent}}']."::class",
@@ -351,13 +426,17 @@ class MakeCrudModuleCommand extends Command
                 "'deleted' => ".$eventReplacements['{{modelDeletedEvent}}']."::class",
             ];
             $dispatchesEvents = "protected \$dispatchesEvents = [\n        " . implode(",\n        ", $dispatchesEventsLines) . "\n    ];";
+            $uses[] = "use {$eventReplacements['{{eventNamespace}}']}\\{$eventReplacements['{{modelCreatedEvent}}']};";
+            $uses[] = "use {$eventReplacements['{{eventNamespace}}']}\\{$eventReplacements['{{modelUpdatedEvent}}']};";
+            $uses[] = "use {$eventReplacements['{{eventNamespace}}']}\\{$eventReplacements['{{modelDeletedEvent}}']};";
         }
+
 
         $replacements = $this->getReplacements() + [
             '{{uses}}' => implode("\n", array_unique($uses)),
             '{{fillableProperties}}' => implode(",\n        ", array_unique($fillable)),
             '{{casts}}' => implode(",\n        ", array_unique($casts)),
-            '{{dates}}' => implode(",\n        ", array_unique($dates)),
+            '{{dates}}' => implode(",\n        ", array_unique($dates)), // SoftDeletes handles 'deleted_at' for $dates.
             '{{relationships}}' => implode("\n\n    ", $relationships),
             '{{dispatchesEvents}}' => $dispatchesEvents,
         ];
@@ -365,17 +444,30 @@ class MakeCrudModuleCommand extends Command
         $this->writeFile($this->basePath . '/Models/' . $this->modelName . '.php', $content);
     }
 
-    protected function findRelatedModelFQN($relatedModelName, $currentModuleModelsNamespace)
-    { /* ... (same as previous version) ... */
-        if (class_exists("App\\Models\\{$relatedModelName}")) {
-            return "App\\Models\\{$relatedModelName}";
-        }
+    protected function findRelatedModelFQN($relatedModelName, $currentModelModuleNamespaceRoot)
+    {
+        // Namespace of the module where the *current model is being generated*
+        // e.g., DryRun\MyModule\Models or Modules\MyModule\Models
+        $currentModuleModelsNamespace = $currentModelModuleNamespaceRoot . '\\Models';
+
+
+        // 1. Check within the same module's Models directory (e.g., DryRun\MyModule\Models\RelatedModel)
         if (class_exists("{$currentModuleModelsNamespace}\\{$relatedModelName}")) {
             return "{$currentModuleModelsNamespace}\\{$relatedModelName}";
         }
-        $allModules = File::glob(base_path('Modules/*'), GLOB_ONLYDIR);
-        foreach ($allModules as $modulePath) {
+
+        // 2. Check App\Models (standard Laravel app models)
+        if (class_exists("App\\Models\\{$relatedModelName}")) {
+            return "App\\Models\\{$relatedModelName}";
+        }
+
+        // 3. Check other *actual* Modules (Modules\OtherModule\Models\RelatedModel)
+        // This part should always look in the 'Modules' directory, not 'DryRun' for inter-module relations.
+        $allActualModules = File::glob(base_path('Modules/*'), GLOB_ONLYDIR);
+        foreach ($allActualModules as $modulePath) {
             $module = basename($modulePath);
+            // Skip if it's the current module we are generating (already checked by $currentModuleModelsNamespace)
+            // Note: $this->moduleName is the simple name like 'Product'
             if ($module === $this->moduleName) {
                 continue;
             }
@@ -383,79 +475,84 @@ class MakeCrudModuleCommand extends Command
                 return "Modules\\{$module}\\Models\\{$relatedModelName}";
             }
         }
-        return null;
+        $this->warn("Could not find FQN for related model: {$relatedModelName}. Relationship may be incomplete.");
+        return null; // Fallback, or you could return a placeholder.
     }
     protected function getClassForUse($fqcn, $currentNamespace, &$usesArray)
-    { /* ... (same as previous version) ... */
+    {
+        // $currentNamespace here is the namespace of the file being written,
+        // e.g., DryRun\MyModule\Models or Modules\MyModule\Models
         if (str_starts_with($fqcn, $currentNamespace . '\\')) {
+            // It's in the same namespace, no 'use' needed, just the class name.
             return Str::afterLast($fqcn, '\\');
         }
+        // It's in a different namespace, add 'use' statement and return class name.
         $usesArray[] = "use {$fqcn};";
         return Str::afterLast($fqcn, '\\');
     }
 
-    protected function detectOtherRelationshipsSimplified(&$relationships, &$uses, $currentModuleModelsNamespace)
+    protected function detectOtherRelationshipsSimplified(&$relationships, &$uses, $currentGeneratingModelNamespaceRoot)
     {
         $allTableNames = [];
         try {
-            // Get all table names using a raw query - this part can be database specific if Schema::getAllTables() isn't available/suitable
-            $tables = DB::select('SHOW TABLES'); // MySQL specific, adjust for other DBs
-            $dbNameKey = 'Tables_in_' . DB::getDatabaseName();
+            $tables = DB::select('SHOW TABLES');
+            $dbNameKey = 'Tables_in_' . DB::getDatabaseName(); // Adjust if your DB key is different
             foreach ($tables as $table) {
                 $allTableNames[] = $table->$dbNameKey;
             }
         } catch (\Exception $e) {
             $this->warn("Could not list all tables for advanced relationship detection: " . $e->getMessage());
-            return; // Exit if cannot list tables
+            return;
         }
 
-        $currentModelForeignKey = Str::snake($this->modelName) . '_id'; // e.g., post_id
+        $currentModelForeignKey = Str::snake($this->modelName) . '_id';
 
-        foreach ($allTableNames as $tableName) {
-            if ($tableName === $this->tableName) {
+        foreach ($allTableNames as $otherTableName) {
+            if ($otherTableName === $this->tableName) {
                 continue;
             }
 
-            // HasMany / HasOne: Check if $tableName has a column named $currentModelForeignKey
-            if (Schema::hasColumn($tableName, $currentModelForeignKey)) {
-                $relatedModel = Str::studly(Str::singular($tableName));
-                $relatedModelFQN = $this->findRelatedModelFQN($relatedModel, $currentModuleModelsNamespace);
+            if (Schema::hasColumn($otherTableName, $currentModelForeignKey)) {
+                $relatedModelName = Str::studly(Str::singular($otherTableName));
+                // For finding FQN, always search based on actual potential locations (App\Models, Modules\OtherModule\Models)
+                // The $currentGeneratingModelNamespaceRoot is for the 'use' statement context.
+                $relatedModelFQN = $this->findRelatedModelFQN($relatedModelName, $currentGeneratingModelNamespaceRoot);
+
                 if (!$relatedModelFQN) {
                     continue;
                 }
 
-                $classForUse = $this->getClassForUse($relatedModelFQN, $currentModuleModelsNamespace, $uses);
-                $relationName = Str::pluralStudly(Str::singular($tableName)); // e.g. Comments
-                if (Str::singular($tableName) === $tableName) { // Heuristic for HasOne
-                    $relationName = Str::studly(Str::singular($tableName)); // e.g. UserProfile
+                $classForUse = $this->getClassForUse($relatedModelFQN, $currentGeneratingModelNamespaceRoot . '\\Models', $uses);
+                $relationBaseName = Str::camel(Str::singular($otherTableName)); // e.g. userProfile
+
+                if (Str::singular($otherTableName) === $otherTableName) { // Heuristic for HasOne
+                    $relationName = $relationBaseName;
                     $relationships[] = "public function {$relationName}()\n    {\n        return \$this->hasOne({$classForUse}::class, '{$currentModelForeignKey}');\n    }";
-                } else {
+                } else { // HasMany
+                    $relationName = Str::plural($relationBaseName); // e.g. comments
                     $relationships[] = "public function {$relationName}()\n    {\n        return \$this->hasMany({$classForUse}::class, '{$currentModelForeignKey}');\n    }";
                 }
             }
 
-            // BelongsToMany (Pivot Table Detection by convention: table1_table2)
-            $parts = explode('_', $tableName);
-            if (count($parts) === 2) { // e.g., post_tag
-                $model1Singular = Str::singular($parts[0]);
-                $model2Singular = Str::singular($parts[1]);
+            $parts = explode('_', $otherTableName);
+            if (count($parts) === 2) {
+                $model1SingularSnake = Str::singular($parts[0]);
+                $model2SingularSnake = Str::singular($parts[1]);
+                $currentModelSingularSnake = Str::singular(Str::snake($this->modelName));
 
-                $currentModelSingular = Str::singular(Str::snake($this->modelName));
-
-                if (($model1Singular === $currentModelSingular || $model2Singular === $currentModelSingular)) {
-                    $otherModelSingular = ($model1Singular === $currentModelSingular) ? $model2Singular : $model1Singular;
-                    $relatedModel = Str::studly($otherModelSingular);
-                    $relatedModelFQN = $this->findRelatedModelFQN($relatedModel, $currentModuleModelsNamespace);
+                if (($model1SingularSnake === $currentModelSingularSnake || $model2SingularSnake === $currentModelSingularSnake)) {
+                    $otherModelSingularSnake = ($model1SingularSnake === $currentModelSingularSnake) ? $model2SingularSnake : $model1SingularSnake;
+                    $relatedModelName = Str::studly($otherModelSingularSnake);
+                    $relatedModelFQN = $this->findRelatedModelFQN($relatedModelName, $currentGeneratingModelNamespaceRoot);
 
                     if ($relatedModelFQN) {
-                        $fk1 = Str::snake($currentModelSingular) . '_id'; // e.g., post_id
-                        $fk2 = Str::snake($otherModelSingular) . '_id';   // e.g., tag_id
+                        $fk1 = Str::snake($currentModelSingularSnake) . '_id';
+                        $fk2 = Str::snake($otherModelSingularSnake) . '_id';
 
-                        // Check if pivot table has these foreign key columns
-                        if (Schema::hasColumn($tableName, $fk1) && Schema::hasColumn($tableName, $fk2)) {
-                            $classForUse = $this->getClassForUse($relatedModelFQN, $currentModuleModelsNamespace, $uses);
-                            $relationName = Str::pluralStudly($otherModelSingular); // e.g., Tags
-                            $relationships[] = "public function {$relationName}()\n    {\n        return \$this->belongsToMany({$classForUse}::class, '{$tableName}', '{$fk1}', '{$fk2}');\n    }";
+                        if (Schema::hasColumn($otherTableName, $fk1) && Schema::hasColumn($otherTableName, $fk2)) {
+                            $classForUse = $this->getClassForUse($relatedModelFQN, $currentGeneratingModelNamespaceRoot . '\\Models', $uses);
+                            $relationName = Str::plural(Str::camel($otherModelSingularSnake));
+                            $relationships[] = "public function {$relationName}()\n    {\n        return \$this->belongsToMany({$classForUse}::class, '{$otherTableName}', '{$fk1}', '{$fk2}');\n    }";
                         }
                     }
                 }
@@ -476,19 +573,19 @@ class MakeCrudModuleCommand extends Command
                 }
                 $columnRules = [];
                 $columnDetail = $this->getColumnDetails($column);
-                $type = $columnDetail ? $columnDetail->type : 'string'; // Default to string if type unknown
-                $isNullable = $columnDetail ? $columnDetail->nullable : true; // Assume nullable if unknown
+                $type = $columnDetail ? $columnDetail->type : 'string';
+                $isNullable = $columnDetail ? $columnDetail->nullable : true;
 
                 $columnRules[] = $isNullable ? 'nullable' : 'required';
                 switch ($type) {
-                    case 'string': case 'text': case 'char': case 'varchar': // Common string types
+                    case 'string': case 'text': case 'char': case 'varchar':
                         $columnRules[] = 'string';
-                        $columnRules[] = 'max:255'; // Default max length for strings without Doctrine
+                        $columnRules[] = 'max:255';
                         break;
-                    case 'integer': case 'bigint': case 'smallint': case 'mediumint': case 'tinyint': // Integer types
+                    case 'integer': case 'bigint': case 'smallint': case 'mediumint': case 'tinyint':
                         $columnRules[] = 'integer';
                         break;
-                    case 'decimal': case 'float': case 'double': case 'numeric': // Numeric types
+                    case 'decimal': case 'float': case 'double': case 'numeric':
                         $columnRules[] = 'numeric';
                         break;
                     case 'boolean': $columnRules[] = 'boolean';
@@ -496,12 +593,17 @@ class MakeCrudModuleCommand extends Command
                     case 'date': $columnRules[] = 'date';
                         break;
                     case 'datetime': case 'timestamp': $columnRules[] = 'date';
-                        break; // Consider 'date_format:Y-m-d H:i:s'
+                        break;
                     case 'json': $columnRules[] = 'json';
-                        break; // Or 'array' if you cast it
+                        break;
                     default: $columnRules[] = 'string';
-                        break; // Fallback
+                        break;
                 }
+                // Unique rule (example, adjust as needed)
+                if ($column === 'email' || $column === 'slug' || $column === 'username') { // Add other common unique fields
+                    $columnRules[] = "'unique:{$this->tableName},{$column},' . (\$this->route('{$this->getModelVarName()}') ? \$this->route('{$this->getModelVarName()}')->id : 'NULL') . ',id'";
+                }
+
                 $rulesArray[] = "'{$column}' => '" . implode('|', $columnRules) . "'";
             }
         } else {
@@ -513,65 +615,75 @@ class MakeCrudModuleCommand extends Command
     }
 
     protected function generateService()
-    { /* ... (same as previous version) ... */
-        $this->writeFile($this->basePath . '/Contracts/' . $this->modelName . 'ServiceInterface.php', $this->populateStub('service.interface', $this->getReplacements()));
-        $this->writeFile($this->basePath . '/Services/' . $this->modelName . 'Service.php', $this->populateStub('service', $this->getReplacements()));
+    {
+        $replacements = $this->getReplacements();
+        $this->writeFile($this->basePath . '/Contracts/' . $this->modelName . 'ServiceInterface.php', $this->populateStub('service.interface', $replacements));
+        $this->writeFile($this->basePath . '/Services/' . $this->modelName . 'Service.php', $this->populateStub('service', $replacements));
     }
     protected function generatePolicy()
-    { /* ... (same as previous version) ... */
-        $this->writeFile($this->basePath . '/Policies/' . $this->modelName . 'Policy.php', $this->populateStub('policy', $this->getReplacements()));
+    {
+        $replacements = $this->getReplacements();
+        $this->writeFile($this->basePath . '/Policies/' . $this->modelName . 'Policy.php', $this->populateStub('policy', $replacements));
     }
     protected function generateEvents()
-    { /* ... (same as previous version) ... */
+    {
         $eventTypes = ['model_created', 'model_updated', 'model_deleted'];
         foreach ($eventTypes as $eventType) {
             $replacements = $this->getReplacements();
-            $eventNamePlaceholder = '{{' . Str::studly(str_replace('_', '', $eventType)) . 'Event}}';
-            $actualEventNameForFile = $replacements[$eventNamePlaceholder] ?? $this->modelName . Str::studly(str_replace('model_', '', $eventType));
+            // Construct the event name based on the model name and event type
+            $actualEventNameForFile = $this->modelName . Str::studly(str_replace('model_', '', $eventType));
+            // Update the specific event placeholder for this iteration
+            $currentEventPlaceholder = '{{' . Str::studly(str_replace('_', '', $eventType)) . 'Event}}'; // e.g. {{ModelCreatedEvent}}
+            $replacements[$currentEventPlaceholder] = $actualEventNameForFile; // Override for this specific event
+
             $content = $this->populateStub('event.' . $eventType, $replacements);
             $this->writeFile($this->basePath . '/Events/' . $actualEventNameForFile . '.php', $content);
         }
     }
     protected function generateObserver()
-    { /* ... (same as previous version) ... */
+    {
         $replacements = $this->getReplacements();
         $content = $this->populateStub('observer', $replacements);
         $filePath = $this->basePath . '/Observers/' . $this->modelName . 'Observer.php';
         $this->writeFile($filePath, $content);
     }
     protected function generateWebController()
-    { /* ... (same as previous version) ... */
-        $rootModuleNamespace = 'Modules\\' . $this->moduleName;
-        $replacements = $this->getReplacements() + [
-            '{{useService}}' => $this->generateService ? "use {$rootModuleNamespace}\\Contracts\\".$this->modelName."ServiceInterface;" : '',
+    {
+        $replacementsGlobal = $this->getReplacements();
+        $modelFQN = $replacementsGlobal['{{modelFullName}}']; // This will be DryRun\Mod\Models\Mod or Modules\Mod\Models\Mod
+
+        $replacements = $replacementsGlobal + [
+            '{{useService}}' => $this->generateService ? "use {$replacementsGlobal['{{namespace}}']}\\Contracts\\".$this->modelName."ServiceInterface;" : '',
             '{{serviceVariable}}' => $this->generateService ? "protected ".$this->modelName."ServiceInterface \$".$this->getServiceVarName().";" : '',
-            '{{serviceInjection}}' => $this->generateService ? "\\{$rootModuleNamespace}\\Contracts\\".$this->modelName."ServiceInterface \$".$this->getServiceVarName() : '',
+            '{{serviceInjection}}' => $this->generateService ? "\\{$replacementsGlobal['{{namespace}}']}\\Contracts\\".$this->modelName."ServiceInterface \$".$this->getServiceVarName() : '',
             '{{serviceAssignment}}' => $this->generateService ? "\$this->".$this->getServiceVarName()." = \$".$this->getServiceVarName().";" : '',
-            '{{serviceCallGetAll}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->getAll(\$request->all())" : "\\{$rootModuleNamespace}\\Models\\".Str::studly($this->modelName)."::latest()->paginate(10)",
+            '{{serviceCallGetAll}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->getAll(\$request->all())" : "\\{$modelFQN}::latest()->paginate(10)",
             '{{serviceCallGetById}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->getById(\${$this->getModelVarName()}->id)" : "\${$this->getModelVarName()}",
-            '{{serviceCallCreate}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->create(\$request->validated())" : "\\{$rootModuleNamespace}\\Models\\".Str::studly($this->modelName)."::create(\$request->validated())",
+            '{{serviceCallCreate}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->create(\$request->validated())" : "\\{$modelFQN}::create(\$request->validated())",
             '{{serviceCallUpdate}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->update(\${$this->getModelVarName()}->id, \$request->validated())" : "\${$this->getModelVarName()}->update(\$request->validated())",
             '{{serviceCallDelete}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->delete(\${$this->getModelVarName()}->id)" : "\${$this->getModelVarName()}->delete()",
-            '{{serviceCallRestore}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->restore(\$id)" : "\\{$rootModuleNamespace}\\Models\\".Str::studly($this->modelName)."::withTrashed()->find(\$id)?->restore()",
-            '{{serviceCallForceDelete}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->forceDelete(\$id)" : "\\{$rootModuleNamespace}\\Models\\".Str::studly($this->modelName)."::withTrashed()->find(\$id)?->forceDelete()",
+            '{{serviceCallRestore}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->restore(\$id)" : "\\{$modelFQN}::withTrashed()->find(\$id)?->restore()",
+            '{{serviceCallForceDelete}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->forceDelete(\$id)" : "\\{$modelFQN}::withTrashed()->find(\$id)?->forceDelete()",
             '{{serviceCallGetDataForDataTable}}' => $this->generateService
                 ? "\$this->".$this->getServiceVarName()."->getDataForDataTable(\$dataTableParams)"
-                : "['data'=>[], 'total'=>0, 'filtered'=>0]; // Service not generated",
+                : "['data'=>[], 'total'=>0, 'filtered'=>0]; // Service not generated, using {$modelFQN}",
         ];
         $content = $this->populateStub('controller.web', $replacements);
         $this->writeFile($this->basePath . '/Http/Controllers/Web/' . $this->modelName . 'Controller.php', $content);
     }
     protected function generateApiController()
-    { /* ... (same as previous version) ... */
-        $rootModuleNamespace = 'Modules\\' . $this->moduleName;
-        $replacements = $this->getReplacements() + [
-            '{{useService}}' => $this->generateService ? "use {$rootModuleNamespace}\\Contracts\\".$this->modelName."ServiceInterface;" : '',
+    {
+        $replacementsGlobal = $this->getReplacements();
+        $modelFQN = $replacementsGlobal['{{modelFullName}}'];
+
+        $replacements = $replacementsGlobal + [
+            '{{useService}}' => $this->generateService ? "use {$replacementsGlobal['{{namespace}}']}\\Contracts\\".$this->modelName."ServiceInterface;" : '',
             '{{serviceVariable}}' => $this->generateService ? "protected ".$this->modelName."ServiceInterface \$".$this->getServiceVarName().";" : '',
-            '{{serviceInjection}}' => $this->generateService ? "\\{$rootModuleNamespace}\\Contracts\\".$this->modelName."ServiceInterface \$".$this->getServiceVarName() : '',
+            '{{serviceInjection}}' => $this->generateService ? "\\{$replacementsGlobal['{{namespace}}']}\\Contracts\\".$this->modelName."ServiceInterface \$".$this->getServiceVarName() : '',
             '{{serviceAssignment}}' => $this->generateService ? "\$this->".$this->getServiceVarName()." = \$".$this->getServiceVarName().";" : '',
-            '{{serviceCallGetAllApi}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->getAllPaginated(\$request->all(), \$request->input('per_page', 15))" : "\\{$rootModuleNamespace}\\Models\\".Str::studly($this->modelName)."::latest()->paginate(\$request->input('per_page', 15))",
+            '{{serviceCallGetAllApi}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->getAllPaginated(\$request->all(), \$request->input('per_page', 15))" : "\\{$modelFQN}::latest()->paginate(\$request->input('per_page', 15))",
             '{{serviceCallGetByIdApi}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->getById(\${$this->getModelVarName()}->id)" : "\${$this->getModelVarName()}",
-            '{{serviceCallCreateApi}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->create(\$request->validated())" : "\\{$rootModuleNamespace}\\Models\\".Str::studly($this->modelName)."::create(\$request->validated())",
+            '{{serviceCallCreateApi}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->create(\$request->validated())" : "\\{$modelFQN}::create(\$request->validated())",
             '{{serviceCallUpdateApi}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->update(\${$this->getModelVarName()}->id, \$request->validated())" : "\${$this->getModelVarName()}->update(\$request->validated())",
             '{{serviceCallDeleteApi}}' => $this->generateService ? "\$this->".$this->getServiceVarName()."->delete(\${$this->getModelVarName()}->id)" : "\${$this->getModelVarName()}->delete()",
         ];
@@ -579,23 +691,30 @@ class MakeCrudModuleCommand extends Command
         $this->writeFile($this->basePath . '/Http/Controllers/Api/' . $this->modelName . 'Controller.php', $content);
     }
     protected function generateResource()
-    { /* ... (same as previous version) ... */
+    {
         $columns = $this->getTableColumns();
         $resourceFields = [];
-        $excludedColumns = ['password', 'remember_token'];
+        $excludedColumns = ['password', 'remember_token']; // 'deleted_at' is usually not included unless specifically needed
         if (!empty($columns)) {
             foreach ($columns as $column) {
                 if (!in_array($column, $excludedColumns)) {
-                    $resourceFields[] = "'{$column}' => \$this->whenNotNull(\$this->{$column})";
+                    // For date fields, ensure they are formatted if not null
+                    if (Str::endsWith($column, '_at') || $column === 'deleted_at') { // Include deleted_at if you want it in API response
+                        $resourceFields[] = "'{$column}' => \$this->whenNotNull(\$this->{$column} ? \$this->{$column}->toIso8601String() : null)";
+                    } else {
+                        $resourceFields[] = "'{$column}' => \$this->whenNotNull(\$this->{$column})";
+                    }
                 }
             }
         } else {
             $resourceFields[] = "// 'id' => \$this->id,";
         }
+        // Ensure 'id' is present if not excluded
         $idFieldPresent = false;
         foreach ($resourceFields as $fieldLine) {
             if (str_starts_with(trim($fieldLine), "'id'")) {
                 $idFieldPresent = true;
+                break;
             }
         }
         if (!$idFieldPresent && !in_array('id', $excludedColumns)) {
@@ -621,27 +740,34 @@ class MakeCrudModuleCommand extends Command
         $this->writeFile($this->basePath . '/Http/Resources/' . $this->modelName . 'Resource.php', $content);
     }
     protected function generateViews()
-    { /* ... (same as previous version, uses determineFieldType without Doctrine) ... */
-        // $viewPathBase = $this->basePath . '/views/' . Str::kebab(Str::plural($this->modelName));
-        $viewPathBase = $this->basePath . '/views/' ;
-        $this->makeDirectory($viewPathBase);
+    {
+        $viewDirName = Str::kebab(Str::plural($this->modelName));
+        //$viewPathBase = $this->basePath . '/views/' . $viewDirName; // Corrected path
+        $viewPathBase = $this->basePath . '/views/';
+        $this->makeDirectory($viewPathBase); // Ensure this specific directory is created
+
         $columns = $this->getTableColumns();
         $excludedColumns = ['id', 'created_at', 'updated_at', 'deleted_at', 'password', 'remember_token'];
         $viewFieldsForShow = [];
         $formFieldsString = '';
-        $tableHeaders = '';
+        $tableHeaders = "<th>ID</th>\n                    "; // Start with ID
 
         if (!empty($columns)) {
+            // Add ID to show fields if not excluded (it's usually not)
+            if (!in_array('id', $excludedColumns)) {
+                $viewFieldsForShow[] = 'id';
+            }
+
             foreach ($columns as $columnName) {
                 if (in_array($columnName, $excludedColumns)) {
                     continue;
                 }
                 $label = Str::title(str_replace('_', ' ', $columnName));
-                $viewFieldsForShow[] = $columnName;
+                $viewFieldsForShow[] = $columnName; // Add to show view
                 $tableHeaders .= "<th>{$label}</th>\n                    ";
 
                 $fieldType = $this->determineFieldType($columnName);
-                $fieldStubContent = $this->getStubContent("fields/{$fieldType}.stub");
+                $fieldStubContent = $this->getStubContent("fields/{$fieldType}"); // No .stub needed here
 
                 $fieldReplacements = [
                     '{{fieldName}}' => $columnName,
@@ -658,7 +784,9 @@ class MakeCrudModuleCommand extends Command
         }
 
         $commonReplacements = $this->getReplacements();
-        $actionColumnContent = $this->populateStub('views.actions', $commonReplacements + ['itemVar' => '$item']);
+        // Pass 'views/actions.blade' to getStubContent, which will append '.stub'
+        $actionColumnContent = $this->populateStub('views/actions.blade', $commonReplacements + ['itemVar' => '$item']);
+
 
         $viewReplacements = $commonReplacements + [
             '{{formFields}}' => rtrim($formFieldsString),
@@ -670,33 +798,38 @@ class MakeCrudModuleCommand extends Command
         ];
 
         $formOnlyReplacements = $this->getReplacements() + ['{{formFields}}' => rtrim($formFieldsString), '{{modelVarName}}' => $this->getModelVarName()];
-        $this->writeFile($viewPathBase . '/_form.blade.php', $this->populateStub('views._form', $formOnlyReplacements));
+        $this->writeFile($viewPathBase . '/_form.blade.php', $this->populateStub('views/_form.blade', $formOnlyReplacements));
 
-        foreach (['index', 'create', 'edit', 'show', 'trashed'] as $view) { // Added trashed view
-            if (File::exists($this->stubsPath . '/views/' . $view . '.blade.stub')) { // Check if stub exists
-                $this->writeFile($viewPathBase . '/' . $view . '.blade.php', $this->populateStub('views.' . $view, $viewReplacements));
+        foreach (['index', 'create', 'edit', 'show', 'trashed'] as $view) {
+            $stubPath = 'views/' . $view . '.blade'; // e.g., 'views/index.blade'
+
+            if (File::exists($this->stubsPath . '/' . $stubPath . '.stub')) {
+                $this->writeFile($viewPathBase . '/' . $view . '.blade.php', $this->populateStub($stubPath, $viewReplacements));
+            } else {
+                $this->warn("View stub not found: {$this->stubsPath}/{$stubPath}.stub. Skipping {$view}.blade.php.");
             }
         }
     }
     protected function determineFieldType($columnName)
-    { /* ... (same as previous version, relies on Schema::getColumnType and conventions) ... */
+    {
         if (Str::endsWith($columnName, '_id') && $columnName !== 'id') {
             return 'select';
         }
-        if (Str::contains($columnName, ['description', 'notes', 'content', 'details', 'message'])) {
+        if (Str::contains($columnName, ['description', 'notes', 'content', 'details', 'message', 'bio', 'summary'])) {
             return 'textarea';
         }
 
         $dbType = null;
-        if (Schema::hasTable($this->tableName) && Schema::hasColumn($this->tableName, $columnName)) { // Check column exists
+        if (Schema::hasTable($this->tableName) && Schema::hasColumn($this->tableName, $columnName)) {
             try {
                 $dbType = Schema::getColumnType($this->tableName, $columnName);
             } catch (\Exception $e) {
+                $this->comment("Could not determine DB type for {$columnName}, defaulting to text. Error: " . $e->getMessage());
             }
         }
 
         if ($dbType) {
-            if ($dbType === 'text') {
+            if ($dbType === 'text' || $dbType === 'mediumtext' || $dbType === 'longtext') { // Common text types
                 return 'textarea';
             }
             if ($dbType === 'date') {
@@ -704,19 +837,18 @@ class MakeCrudModuleCommand extends Command
             }
             if ($dbType === 'datetime' || $dbType === 'timestamp') {
                 return 'datetime';
-            } // Use datetime.stub
-            if ($dbType === 'boolean' || $dbType === 'tinyint') {
+            }
+            if ($dbType === 'boolean' || ($dbType === 'tinyint')) { // Often tinyint(1) is boolean
                 return 'checkbox';
             }
         }
-        // Fallback to naming conventions
-        if (Str::contains($columnName, ['_at', 'date'])) {
+        if (Str::contains($columnName, ['_at', '_date', 'dated_'])) {
             return 'datetime';
-        } // Or 'date' if preferred
-        if (Str::contains($columnName, ['image', 'avatar', 'logo', 'file', 'document'])) {
+        }
+        if (Str::contains($columnName, ['image', 'avatar', 'logo', 'file', 'document', 'attachment', 'photo'])) {
             return 'file';
         }
-        if (Str::startsWith($columnName, 'is_') || Str::startsWith($columnName, 'has_')) {
+        if (Str::startsWith($columnName, 'is_') || Str::startsWith($columnName, 'has_') || Str::endsWith($columnName, '_flag')) {
             return 'checkbox';
         }
         if (Str::contains($columnName, 'email')) {
@@ -725,48 +857,78 @@ class MakeCrudModuleCommand extends Command
         if (Str::contains($columnName, 'password')) {
             return 'password';
         }
+        if (Str::contains($columnName, 'url') || Str::contains($columnName, 'link')) {
+            return 'url'; // Assuming you might have a url.stub or fallback to text
+        }
+        if (Str::contains($columnName, 'phone') || Str::contains($columnName, 'mobile') || Str::contains($columnName, 'tel')) {
+            return 'tel'; // Assuming you might have a tel.stub or fallback to text
+        }
+        if (Str::contains($columnName, 'color') || Str::contains($columnName, 'hex')) {
+            return 'color'; // Assuming you might have a color.stub or fallback to text
+        }
         return 'text';
     }
     protected function getOptionsForSelect($columnName)
-    { /* ... (same as previous version) ... */
+    {
         if (Str::endsWith($columnName, '_id')) {
             $relatedModelName = Str::studly(Str::singular(str_replace('_id', '', $columnName)));
             $relatedPluralVar = Str::plural(Str::camel($relatedModelName));
-            return "<option value=\"\">-- Select {$relatedModelName} --</option>\n                    @foreach(\${$relatedPluralVar} ?? [] as \$relatedItem)\n                        <option value=\"{{\$relatedItem->id}}\" {{ (old('{$columnName}', \${$this->getModelVarName()}->{$columnName} ?? null) == \$relatedItem->id) ? 'selected' : '' }}>{{\$relatedItem->name ?? \$relatedItem->id}}</option>\n                    @endforeach";
+            $displayName = 'name'; // Default display name
+            // Heuristic for common display names
+            if ($relatedModelName === 'User') {
+                $displayName = 'name';
+            } // or 'email'
+            elseif (Str::contains($relatedModelName, 'Category')) {
+                $displayName = 'name';
+            } elseif (Str::contains($relatedModelName, 'Type')) {
+                $displayName = 'name';
+            } elseif (Str::contains($relatedModelName, 'Status')) {
+                $displayName = 'name';
+            }
+
+
+            return "<option value=\"\">-- Select {$relatedModelName} --</option>\n                    @foreach(\${$relatedPluralVar} ?? [] as \$relatedItem)\n                        <option value=\"{{\$relatedItem->id}}\" {{ (old('{$columnName}', \${$this->getModelVarName()}->{$columnName} ?? null) == \$relatedItem->id) ? 'selected' : '' }}>{{\$relatedItem->{$displayName} ?? \$relatedItem->id}}</option>\n                    @endforeach";
         }
-        if (Str::startsWith($columnName, 'is_') || Str::startsWith($columnName, 'has_')) {
-            return "<option value=\"1\" {{ (old('{$columnName}', \${$this->getModelVarName()}->{$columnName} ?? 0) == 1) ? 'selected' : '' }}>Yes</option>\n                    <option value=\"0\" {{ (old('{$columnName}', \${$this->getModelVarName()}->{$columnName} ?? 0) == 0) ? 'selected' : '' }}>No</option>";
-        }
+        // For boolean-like fields, you might want a Yes/No select instead of a checkbox sometimes
+        // if (Str::startsWith($columnName, 'is_') || Str::startsWith($columnName, 'has_')) {
+        //     return "<option value=\"1\" {{ (old('{$columnName}', \${$this->getModelVarName()}->{$columnName} ?? 0) == 1) ? 'selected' : '' }}>Yes</option>\n                    <option value=\"0\" {{ (old('{$columnName}', \${$this->getModelVarName()}->{$columnName} ?? 0) == 0) ? 'selected' : '' }}>No</option>";
+        // }
         return '';
     }
     protected function generateRoutes()
-    { /* ... (same as previous version) ... */
-        $this->writeFile($this->basePath . '/routes/web.php', $this->populateStub('routes.web', $this->getReplacements()));
+    {
+        $replacements = $this->getReplacements();
+        $this->writeFile($this->basePath . '/routes/web.php', $this->populateStub('routes.web', $replacements));
         if ($this->createApi) {
-            $this->writeFile($this->basePath . '/routes/api.php', $this->populateStub('routes.api', $this->getReplacements()));
+            $this->writeFile($this->basePath . '/routes/api.php', $this->populateStub('routes.api', $replacements));
         }
     }
     protected function generateServiceProvider()
-    { /* ... (same as previous version) ... */
-        $rootModuleNamespace = 'Modules\\' . $this->moduleName;
+    {
+        $replacementsGlobal = $this->getReplacements();
+        $generatedNamespaceRoot = $replacementsGlobal['{{namespace}}']; // This will be DryRun\Mod or Modules\Mod
+
         $policiesArray = [];
         $bindingsArray = [];
         $observersArray = [];
         if ($this->generatePolicy) {
-            $policiesArray[] = "\\{$rootModuleNamespace}\\Models\\".$this->modelName."::class => \\{$rootModuleNamespace}\\Policies\\".$this->modelName."Policy::class,";
+            // Policy maps the *actual* model (Modules\...) to the generated policy (DryRun\...\P or Modules\...\P)
+            $policiesArray[] = "\\{$replacementsGlobal['{{actualModelFullName}}']}::class => \\{$generatedNamespaceRoot}\\Policies\\".$this->modelName."Policy::class,";
         }
         if ($this->generateService) {
-            $bindingsArray[] = "\$this->app->bind(\\{$rootModuleNamespace}\\Contracts\\".$this->modelName."ServiceInterface::class, \\{$rootModuleNamespace}\\Services\\".$this->modelName."Service::class);";
+            $bindingsArray[] = "\$this->app->bind(\\{$generatedNamespaceRoot}\\Contracts\\".$this->modelName."ServiceInterface::class, \\{$generatedNamespaceRoot}\\Services\\".$this->modelName."Service::class);";
         }
         if ($this->generateObserver) {
-            $observersArray[] = "\\{$rootModuleNamespace}\\Models\\".$this->modelName."::observe(\\{$rootModuleNamespace}\\Observers\\".$this->modelName."Observer::class);";
+            // Observer observes the *actual* model (Modules\...) using the generated observer (DryRun\...\O or Modules\...\O)
+            $observersArray[] = "\\{$replacementsGlobal['{{actualModelFullName}}']}::class => \\{$generatedNamespaceRoot}\\Observers\\".$this->modelName."Observer::class);";
         }
 
-        $replacements = $this->getReplacements() + [
+        $replacements = $replacementsGlobal + [
             '{{hasApiRoutes}}' => $this->createApi ? 'true' : 'false', '{{hasWebRoutes}}' => 'true',
             '{{policies}}' => empty($policiesArray) ? "// Model Policies" : implode("\n        ", $policiesArray),
             '{{bindings}}' => empty($bindingsArray) ? "// Service Bindings" : implode("\n        ", $bindingsArray),
             '{{observers}}' => empty($observersArray) ? "// Model Observers" : implode("\n        ", $observersArray),
+            '{{viewDirectoryName}}' => Str::kebab(Str::plural($this->modelName)), // for loadViewsFrom
         ];
         $this->writeFile($this->basePath . '/Providers/' . $this->moduleName . 'ServiceProvider.php', $this->populateStub('provider', $replacements));
     }

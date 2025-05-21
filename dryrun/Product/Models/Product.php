@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\Product\Models;
+namespace DryRun\Product\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\SoftDeletes; // Will include SoftDeletes and ot
 
 class Product extends Model
 {
-    use HasFactory, SoftDeletes; // SoftDeletes added by default
+    use HasFactory;
+    use SoftDeletes; // SoftDeletes added by default
     // use HasUuids;
 
     // protected $connection = 'your_connection_name';
@@ -21,7 +22,6 @@ class Product extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'deleted_at' => 'datetime',
         'name',
         'hsn_code',
         'display_order',
@@ -75,8 +75,8 @@ class Product extends Model
      *
      * @var array
      */
-    
+
 
     // Relationships
-    
+
 }

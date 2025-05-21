@@ -1,12 +1,12 @@
 <?php
 
-namespace Modules\Product\Http\Requests;
+namespace DryRun\Product\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Gate;
-use Modules\Product\Models\Product;
+use DryRun\Product\Models\Product;
 
 class ProductRequest extends FormRequest
 {

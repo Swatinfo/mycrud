@@ -1,10 +1,11 @@
 <?php
 
-namespace Modules\Product\Http\Controllers\Web;
+namespace DryRun\Product\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller; // Assuming global base controller
-use Modules\Product\Models\Product;
-use Modules\Product\Http\Requests\ProductRequest;
+use DryRun\Product\Models\Product;
+use DryRun\Product\Http\Requests\ProductRequest;
+
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -16,16 +17,16 @@ class ProductController extends Controller
 {
     protected $viewPathPrefix;
     protected $routeNamePrefix;
-
+    
 
     public function __construct()
     {
-
+        
         // $this->middleware('auth'); // Apply to all methods or specific ones
 
         // Example of authorizing all resource methods using a policy
         // Ensure YourModelNamePolicy is created and registered
-        // $this->authorizeResource(\Modules\Product\Models\Product::class, 'product');
+        // $this->authorizeResource(\DryRun\Product\Models\Product::class, 'product');
         // Note: For authorizeResource to work correctly, your route parameter name
         // in routes/web.php for the resource should match the singular model name placeholder.
         // e.g., Route::resource('posts', PostController::class); -> parameter 'post'
@@ -44,7 +45,7 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        // Gate::authorize('viewAny', \Modules\Product\Models\Product::class);
+        // Gate::authorize('viewAny', \DryRun\Product\Models\Product::class);
 
         if ($request->ajax()) {
             try {
@@ -58,7 +59,7 @@ class ProductController extends Controller
                     'trashed_filter' => $request->input('trashed_filter', 'without'), // For potential trashed filter in DataTables
                 ];
 
-                $results = ['data' => [], 'total' => 0, 'filtered' => 0]; // Service not generated; ; // Service method handles data fetching
+                $results = ['data'=>[], 'total'=>0, 'filtered'=>0]; // Service not generated, using DryRun\Product\Models\Product; ; // Service method handles data fetching
 
                 return response()->json([
                     'draw' => intval($dataTableParams['draw']),
@@ -87,7 +88,7 @@ class ProductController extends Controller
      */
     public function create()
     {
-        // Gate::authorize('create', \Modules\Product\Models\Product::class);
+        // Gate::authorize('create', \DryRun\Product\Models\Product::class);
 
         // TODO: Fetch related data for dropdowns/selects if necessary, e.g., from the service
         // $relatedData = $this->productService->getFormDataForCreate();
@@ -98,15 +99,15 @@ class ProductController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @param  \Modules\Product\Http\Requests\ProductRequest  $request
+     * @param  \DryRun\Product\Http\Requests\ProductRequest  $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function store(ProductRequest $request)
     {
         // Authorization is typically handled by the FormRequest's authorize() method.
-        // Or, Gate::authorize('create', \Modules\Product\Models\Product::class);
+        // Or, Gate::authorize('create', \DryRun\Product\Models\Product::class);
         try {
-            $product = \Modules\Product\Models\Product::create($request->validated());
+            $product = \DryRun\Product\Models\Product::create($request->validated());
             // TODO: Handle file uploads if any, usually done in the service or before calling service
             // TODO: Handle syncing of BelongsToMany relationships if any, usually done in the service
 
@@ -124,10 +125,10 @@ class ProductController extends Controller
     /**
      * Display the specified resource.
      *
-     * @param  \Modules\Product\Models\Product  $product
+     * @param  \DryRun\Product\Models\Product  $product
      * @return \Illuminate\Contracts\View\View|\Illuminate\Http\RedirectResponse
      */
-    public function show(\Modules\Product\Models\Product $product) // Route model binding
+    public function show(\DryRun\Product\Models\Product $product) // Route model binding
     {
         // Gate::authorize('view', $product);
         try {
@@ -151,10 +152,10 @@ class ProductController extends Controller
     /**
      * Show the form for editing the specified resource.
      *
-     * @param  \Modules\Product\Models\Product  $product
+     * @param  \DryRun\Product\Models\Product  $product
      * @return \Illuminate\Contracts\View\View
      */
-    public function edit(\Modules\Product\Models\Product $product)
+    public function edit(\DryRun\Product\Models\Product $product)
     {
         // Gate::authorize('update', $product);
 
@@ -167,11 +168,11 @@ class ProductController extends Controller
     /**
      * Update the specified resource in storage.
      *
-     * @param  \Modules\Product\Http\Requests\ProductRequest  $request
-     * @param  \Modules\Product\Models\Product  $product
+     * @param  \DryRun\Product\Http\Requests\ProductRequest  $request
+     * @param  \DryRun\Product\Models\Product  $product
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function update(ProductRequest $request, \Modules\Product\Models\Product $product)
+    public function update(ProductRequest $request, \DryRun\Product\Models\Product $product)
     {
         // Authorization is typically handled by the FormRequest's authorize() method.
         // Or, Gate::authorize('update', $product);
@@ -197,10 +198,10 @@ class ProductController extends Controller
     /**
      * Remove the specified resource from storage (Soft Delete).
      *
-     * @param  \Modules\Product\Models\Product  $product
+     * @param  \DryRun\Product\Models\Product  $product
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function destroy(\Modules\Product\Models\Product $product)
+    public function destroy(\DryRun\Product\Models\Product $product)
     {
         // Gate::authorize('delete', $product);
         try {
@@ -224,7 +225,7 @@ class ProductController extends Controller
      */
     public function trashed(Request $request)
     {
-        // Gate::authorize('viewAny', \Modules\Product\Models\Product::class); // Or a specific 'view trashed' permission
+        // Gate::authorize('viewAny', \DryRun\Product\Models\Product::class); // Or a specific 'view trashed' permission
 
         if ($request->ajax()) {
             try {
@@ -238,7 +239,7 @@ class ProductController extends Controller
                     'trashed_filter' => 'only', // Force to only show trashed items
                 ];
 
-                $results = ['data' => [], 'total' => 0, 'filtered' => 0]; // Service not generated; ;
+                $results = ['data'=>[], 'total'=>0, 'filtered'=>0]; // Service not generated, using DryRun\Product\Models\Product; ;
 
                 return response()->json([
                     'draw' => intval($dataTableParams['draw']),
@@ -267,7 +268,7 @@ class ProductController extends Controller
         // $product = $this->productService->getById($id, [], true); // true for withTrashed
         // Gate::authorize('restore', $product);
         try {
-            $restored = \Modules\Product\Models\Product::withTrashed()->find($id)?->restore();
+            $restored = \DryRun\Product\Models\Product::withTrashed()->find($id)?->restore();
             if ($restored) {
                 return redirect()->route($this->routeNamePrefix . '.index')
                                  ->with('success', 'Product restored successfully.');
@@ -292,7 +293,7 @@ class ProductController extends Controller
         // $product = $this->productService->getById($id, [], true); // true for withTrashed
         // Gate::authorize('forceDelete', $product);
         try {
-            $deleted = \Modules\Product\Models\Product::withTrashed()->find($id)?->forceDelete();
+            $deleted = \DryRun\Product\Models\Product::withTrashed()->find($id)?->forceDelete();
             if ($deleted) {
                 return redirect()->route($this->routeNamePrefix . '.trashed') // Or index, depending on preference
                                  ->with('success', 'Product permanently deleted successfully.');
