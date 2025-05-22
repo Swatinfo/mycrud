@@ -2,7 +2,6 @@
 
 // For a live module, this would be: Modules\Products\Providers
 // For a dry run, this would be: DryRun\Products\Providers
-
 namespace DryRun\Products\Providers; // Placeholder will be replaced by the generator
 
 use Illuminate\Support\ServiceProvider;
@@ -104,12 +103,9 @@ class ProductsServiceProvider extends ServiceProvider
     {
         // The view directory name should be the plural kebab-case of the model/module.
         // e.g., for Product module, views are in 'products' directory.
-        $viewsPath = __DIR__.'/../views/' ;
-        echo "Views...".$viewsPath . "\n";
+        //$viewsPath = __DIR__.'/../views/' . $this->viewDirectoryName;
+        $viewsPath = __DIR__.'/../views/';
         if (File::isDirectory($viewsPath)) {
-
-
-
             // The second argument to loadViewsFrom is the namespace for the views.
             $this->loadViewsFrom($viewsPath, $this->moduleKebabName); // e.g., load views from 'products' directory under 'products' namespace
         }
