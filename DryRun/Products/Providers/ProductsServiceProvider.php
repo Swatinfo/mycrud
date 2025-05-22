@@ -2,7 +2,8 @@
 
 // For a live module, this would be: Modules\Products\Providers
 // For a dry run, this would be: DryRun\Products\Providers
-namespace {{namespace}}\Providers; // Placeholder will be replaced by the generator
+
+namespace DryRun\Products\Providers; // Placeholder will be replaced by the generator
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Route;
@@ -10,12 +11,12 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
-// Use the correct model path based on {{namespace}}
-// use {{namespace}}\Models\{{modelName}};
-// use {{namespace}}\Policies\{{policyName}};
-// use {{namespace}}\Observers\{{observerName}};
+// Use the correct model path based on DryRun\Products
+// use DryRun\Products\Models\Product;
+// use DryRun\Products\Policies\ProductPolicy;
+// use DryRun\Products\Observers\ProductObserver;
 
-class {{moduleName}}ServiceProvider extends ServiceProvider
+class ProductsServiceProvider extends ServiceProvider
 {
     /**
      * The base namespace for the module's controllers, etc.
@@ -38,7 +39,7 @@ class {{moduleName}}ServiceProvider extends ServiceProvider
 
 
     protected $policies = [
-        // '{{actualModelFullName}}'::class => '{{namespace}}\Policies\{{policyName}}::class,
+        // 'Modules\Products\Models\Product'::class => 'DryRun\Products\Policies\ProductPolicy::class,
     ];
 
     public function __construct($app)
@@ -55,10 +56,10 @@ class {{moduleName}}ServiceProvider extends ServiceProvider
     {
         // Bind services if {{service}} option was used
         // Example:
-        // if (class_exists($this->moduleNamespace . '\\Services\\{{serviceName}}::class')) {
+        // if (class_exists($this->moduleNamespace . '\\Services\\ProductService::class')) {
         //     $this->app->bind(
-        //         $this->moduleNamespace . '\\Contracts\\{{serviceInterfaceName}}::class,
-        //         $this->moduleNamespace . '\\Services\\{{serviceName}}::class
+        //         $this->moduleNamespace . '\\Contracts\\ProductServiceInterface::class,
+        //         $this->moduleNamespace . '\\Services\\ProductService::class
         //     );
         // }
     }
@@ -103,9 +104,12 @@ class {{moduleName}}ServiceProvider extends ServiceProvider
     {
         // The view directory name should be the plural kebab-case of the model/module.
         // e.g., for Product module, views are in 'products' directory.
-        //$viewsPath = __DIR__.'/../views/' . $this->viewDirectoryName;
-        $viewsPath = __DIR__.'/../views/';
+        $viewsPath = __DIR__.'/../views/' ;
+        echo "Views...".$viewsPath . "\n";
         if (File::isDirectory($viewsPath)) {
+
+
+
             // The second argument to loadViewsFrom is the namespace for the views.
             $this->loadViewsFrom($viewsPath, $this->moduleKebabName); // e.g., load views from 'products' directory under 'products' namespace
         }
@@ -113,12 +117,12 @@ class {{moduleName}}ServiceProvider extends ServiceProvider
 
     protected function registerPolicies(): void
     {
-        // Ensure the {{actualModelFullName}} placeholder is correctly replaced by the command
+        // Ensure the Modules\Products\Models\Product placeholder is correctly replaced by the command
         // to point to Modules\ModuleName\Models\ModelName::class
-        // And {{namespace}} for the policy is also correctly DryRun\ModName or Modules\ModName
+        // And DryRun\Products for the policy is also correctly DryRun\ModName or Modules\ModName
         // Example:
-        // if (class_exists('{{actualModelFullName}}') && class_exists($this->moduleNamespace . '\\Policies\\{{policyName}}::class')) {
-        //     Gate::policy('{{actualModelFullName}}'::class, $this->moduleNamespace . '\\Policies\\{{policyName}}::class);
+        // if (class_exists('Modules\Products\Models\Product') && class_exists($this->moduleNamespace . '\\Policies\\ProductPolicy::class')) {
+        //     Gate::policy('Modules\Products\Models\Product'::class, $this->moduleNamespace . '\\Policies\\ProductPolicy::class);
         // }
         foreach ($this->policies as $model => $policy) {
             Gate::policy($model, $policy);
@@ -128,8 +132,8 @@ class {{moduleName}}ServiceProvider extends ServiceProvider
     protected function registerObservers(): void
     {
         // Example:
-        // if (class_exists('{{actualModelFullName}}') && class_exists($this->moduleNamespace . '\\Observers\\{{observerName}}::class')) {
-        //      '{{actualModelFullName}}'::observe($this->moduleNamespace . '\\Observers\\{{observerName}}::class);
+        // if (class_exists('Modules\Products\Models\Product') && class_exists($this->moduleNamespace . '\\Observers\\ProductObserver::class')) {
+        //      'Modules\Products\Models\Product'::observe($this->moduleNamespace . '\\Observers\\ProductObserver::class);
         // }
     }
 }

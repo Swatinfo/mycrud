@@ -7,15 +7,12 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Artisan;
-use Symfony\Component\Process\Process;
-use Symfony\Component\Process\Exception\ProcessFailedException;
 
-class MakeCrudModuleCommand extends Command
+class MakeCrudModuleCommandBackup extends Command
 {
-    protected $signature = 'make:crud-module {name : The name of the module (e.g., Post, ProductCategory)}
+    protected $signature = 'make:crud-module-backup {name : The name of the module (e.g., Post, ProductCategory)}
                                              {--table= : The name of the database table (optional)}
-                                             {--dry-run : Generate files in a "DryRun/{ModuleName}" directory at the project root}
+                                             {--dry-run : Generate files in a "dryrun/{ModuleName}" directory at the project root}
                                              {--no-views : Do not create view files}
                                              {--no-api : Do not create API controller and resource}
                                              {--service : Generate a service class for business logic}
@@ -39,10 +36,8 @@ class MakeCrudModuleCommand extends Command
     protected $generateObserver = false;
     protected $forceOverwrite = false;
 
-    // This will be the dry-run path if --dry-run is used, otherwise the actual module path
     protected $basePath;
     protected $stubsPath;
-    // Always points to Modules/ModuleName
     protected $actualModulesPath;
 
     public function handle()
@@ -60,22 +55,19 @@ class MakeCrudModuleCommand extends Command
         $this->generateObserver = $this->option('observer');
         $this->forceOverwrite = $this->option('force');
 
-        // Define actualModulesPath regardless of dry-run for informational output
         $this->actualModulesPath = base_path('Modules/' . $this->moduleName);
         $this->stubsPath = base_path('stubs/crud-module');
 
         if ($this->isDryRun) {
-            // basePath is for current operation
-            $this->basePath = base_path('DryRun/' . $this->moduleName);
-            $this->alert("Dry run mode: Files will be generated in: {$this->basePath}");
-            if (!File::isDirectory(base_path('DryRun'))) {
-                File::makeDirectory(base_path('DryRun'), 0755, true, true);
+            $this->basePath = base_path('dryrun/' . $this->moduleName);
+            $this->warn("Dry run mode: Files will be generated in: {$this->basePath}");
+            if (!File::isDirectory(base_path('dryrun'))) {
+                File::makeDirectory(base_path('dryrun'), 0755, true, true);
             }
             if (File::isDirectory($this->basePath) && !$this->forceOverwrite && $this->confirm("Dry-run directory [{$this->basePath}] exists. Clear it?")) {
                 File::deleteDirectory($this->basePath);
             }
         } else {
-            // basePath is for current operation
             $this->basePath = $this->actualModulesPath;
             if (!File::isDirectory(base_path('Modules'))) {
                 File::makeDirectory(base_path('Modules'), 0755, true, true);
@@ -88,7 +80,7 @@ class MakeCrudModuleCommand extends Command
             return 1;
         }
         if (!File::isDirectory($this->stubsPath . '/fields')) {
-            $this->alert("Field stubs directory not found: {$this->stubsPath}/fields. Form generation will be basic.");
+            $this->warn("Field stubs directory not found: {$this->stubsPath}/fields. Form generation will be basic.");
         }
 
         $this->generateModuleStructure();
@@ -121,15 +113,6 @@ class MakeCrudModuleCommand extends Command
 
         $this->info("CRUD module '{$this->moduleName}' generated successfully in {$this->basePath}.");
         $this->outputAutoloadingAndRegistrationInstructions();
-
-        $this->autoRegisterServiceProvider(); // Updated call
-
-
-        $this->info('Running post-generation commands...');
-
-        $this->runPostCommands();
-
-
         return 0;
     }
 
@@ -141,10 +124,8 @@ class MakeCrudModuleCommand extends Command
         $this->line("<fg=blue>======================================================================</>");
         $this->newLine();
 
-        // Paths and Namespaces Information
-        $dryRunPathInfo = base_path('DryRun/' . $this->moduleName);
+        $dryRunPathInfo = base_path('dryrun/' . $this->moduleName);
         $dryRunNamespaceInfo = 'DryRun\\' . $this->moduleName;
-        // Already defined in handle()
         $actualModulePathInfo = $this->actualModulesPath;
         $actualModuleNamespaceInfo = 'Modules\\' . $this->moduleName;
 
@@ -186,7 +167,7 @@ class MakeCrudModuleCommand extends Command
         $this->line("   In `composer.json`, under `\"autoload\"` -> `\"psr-4\"`, ensure:");
         $this->comment('     "Modules\\\\": "Modules/",');
         $this->comment('     // If you were to use dry-run files directly (not typical for production):');
-        $this->comment('     // "DryRun\\\\": "DryRun/",');
+        $this->comment('     // "DryRun\\\\": "dryrun/",');
         $this->newLine();
 
         $this->line("<fg=yellow>Step B: Update Composer's Autoloader</>");
@@ -223,8 +204,8 @@ class MakeCrudModuleCommand extends Command
             $this->basePath . '/Http/Controllers/Web', $this->basePath . '/Http/Controllers/Api',
             $this->basePath . '/Http/Requests', $this->basePath . '/Http/Resources',
             $this->basePath . '/Models', $this->basePath . '/Providers', $this->basePath . '/routes',
-            // $this->basePath . '/views/' . Str::kebab(Str::plural($this->modelName)),
-            $this->basePath . '/views',
+             // $this->basePath . '/views/' . Str::kebab(Str::plural($this->modelName)),
+            $this->basePath . '/views/',
             $this->basePath . '/database/migrations',
         ];
         if ($this->generateService) {
@@ -259,17 +240,12 @@ class MakeCrudModuleCommand extends Command
     protected function getStubContent($stubName)
     {
         $stubPath = $this->stubsPath . '/' . $stubName . '.stub';
-
-        $stubPath = str_replace('.stub.stub', ".stub", $stubPath);
-
         if (!File::exists($stubPath)) {
             if (str_starts_with($stubName, 'fields/')) {
-                $this->alert("Field stub not found: {$stubPath}. Falling back to basic text input for this field.");
+                $this->warn("Field stub not found: {$stubPath}. Falling back to basic text input for this field.");
                 return File::exists($this->stubsPath . '/fields/text.stub') ? File::get($this->stubsPath . '/fields/text.stub') : "<input type=\"text\" name=\"{{fieldName}}\" value=\"{{fieldValue}}\">";
             }
-            // Handle cases where stubName might already contain .blade (e.g. for views/actions.blade)
             if (Str::endsWith($stubName, '.blade')) {
-                // e.g. views/actions.blade.stub
                 $stubPath = $this->stubsPath . '/' . $stubName . '.stub';
                 if (File::exists($stubPath)) {
                     return File::get($stubPath);
@@ -299,32 +275,23 @@ class MakeCrudModuleCommand extends Command
         $modelNamePluralLowerCase = Str::lower(Str::plural($this->modelName));
         $moduleNameKebab = Str::kebab($this->moduleName);
 
-        // Conditionally define the root namespace for code generation
         if ($this->isDryRun) {
             $rootModuleNamespaceForGeneration = 'DryRun\\' . $this->moduleName;
         } else {
             $rootModuleNamespaceForGeneration = 'Modules\\' . $this->moduleName;
         }
-        // Namespace for referencing the actual model, even in dry run (e.g. for Policy)
         $actualModelNamespace = 'Modules\\' . $this->moduleName . '\\Models\\' . $this->modelName;
 
         return [
-            // Used for the 'namespace' line in generated files
             '{{namespace}}' => $rootModuleNamespaceForGeneration,
             '{{moduleName}}' => $this->moduleName,
             '{{modelName}}' => $this->modelName,
-            // Namespace of the model being generated
             '{{modelFullName}}' => $rootModuleNamespaceForGeneration . '\\Models\\' . $this->modelName,
-            // Always Modules\...\Models for policy target etc.
             '{{actualModelFullName}}' => $actualModelNamespace,
             '{{modelNamePlural}}' => Str::plural($this->modelName),
             '{{modelNameSingularLowerCase}}' => $modelNameSingularLowerCase,
             '{{modelNamePluralLowerCase}}' => $modelNamePluralLowerCase,
             '{{tableName}}' => $this->tableName,
-            // viewPath should refer to the alias that will be used by the application to load views.
-            // This alias is typically registered by the module's service provider.
-            // For dry-run, the files are in DryRun/..., but they'd be moved to Modules/... for actual use.
-            // So, the view path in code should reflect the final 'Modules' structure.
             '{{viewPath}}' => $moduleNameKebab . '::' . Str::kebab(Str::plural($this->modelName)),
             '{{routeNamePrefix}}' => $moduleNameKebab . '.' . $modelNamePluralLowerCase,
             '{{apiRouteNamePrefix}}' => 'api.' . $moduleNameKebab . '.' . $modelNamePluralLowerCase,
@@ -352,12 +319,12 @@ class MakeCrudModuleCommand extends Command
     {
         try {
             if (!Schema::hasTable($this->tableName)) {
-                $this->alert("Table '{$this->tableName}' does not exist. Cannot infer columns.");
+                $this->warn("Table '{$this->tableName}' does not exist. Cannot infer columns.");
                 return [];
             }
             return Schema::getColumnListing($this->tableName);
         } catch (\Exception $e) {
-            $this->alert("Could not get columns for table '{$this->tableName}': {$e->getMessage()}");
+            $this->warn("Could not get columns for table '{$this->tableName}': {$e->getMessage()}");
         }
         return [];
     }
@@ -369,17 +336,13 @@ class MakeCrudModuleCommand extends Command
         }
         try {
             $type = Schema::getColumnType($this->tableName, $columnName);
-            // Native Schema doesn't easily provide nullable, length, etc. in a cross-DB way without Doctrine.
-            // We'll have to make assumptions or keep it simple.
             return (object) [
                 'type' => $type,
-                // Assume nullable by default, or require user to adjust validation
                 'nullable' => true,
-                // Cannot reliably get length without Doctrine
                 'length' => null,
             ];
         } catch (\Exception $e) {
-            $this->alert("Could not get details for column '{$columnName}': {$e->getMessage()}");
+            $this->warn("Could not get details for column '{$columnName}': {$e->getMessage()}");
             return null;
         }
     }
@@ -413,7 +376,7 @@ class MakeCrudModuleCommand extends Command
                     $foreignKeys[$result->COLUMN_NAME] = $result;
                 }
             } catch (\Exception $e) {
-                $this->alert("Could not retrieve foreign key constraints for table '{$tableName}' (MySQL/MariaDB): " . $e->getMessage());
+                $this->warn("Could not retrieve foreign key constraints for table '{$tableName}' (MySQL/MariaDB): " . $e->getMessage());
             }
         } elseif ($dbDriver === 'sqlite') {
             try {
@@ -429,7 +392,7 @@ class MakeCrudModuleCommand extends Command
                     ];
                 }
             } catch (\Exception $e) {
-                $this->alert("Could not retrieve foreign key constraints for table '{$tableName}' (SQLite): " . $e->getMessage());
+                $this->warn("Could not retrieve foreign key constraints for table '{$tableName}' (SQLite): " . $e->getMessage());
             }
         } else {
             $this->comment("Foreign key constraint detection for '{$dbDriver}' is not explicitly implemented. Falling back to conventions.");
@@ -448,7 +411,6 @@ class MakeCrudModuleCommand extends Command
         // SoftDeletes trait adds 'deleted_at' to $dates automatically
         $dates = ["'deleted_at'"];
         $relationships = [];
-        // Default
         $uses = ["use Illuminate\\Database\\Eloquent\\SoftDeletes;"];
         // $uses[] = "use Illuminate\\Database\\Eloquent\\Factories\\HasFactory;";
 
@@ -496,53 +458,28 @@ class MakeCrudModuleCommand extends Command
                     if ($relatedModelName) {
                         $relatedModelFQN = $this->findRelatedModelFQN($relatedModelName, $currentGeneratingModelModuleNamespace);
                         $classForUse = $relatedModelName; // Default to simple class name
-                        $useStatementCommentUse = "// TODO: Create `{$relatedModelName}` model or ensure it's discoverable.";
-                        $useStatementComment = "";
-                        // $relationshipTargetClass = "\\{$currentGeneratingModelModuleNamespace}\\Models\\{$relatedModelName}::class; // {$useStatementComment}";
-                        $relationshipTargetClass = "\\{$currentGeneratingModelModuleNamespace}\\Models\\{$relatedModelName}::class;";
+                        $useStatementComment = "// TODO: Create `{$relatedModelName}` model or ensure it's discoverable.";
+                        $relationshipTargetClass = "\\{$currentGeneratingModelModuleNamespace}\\Models\\{$relatedModelName}::class; // {$useStatementComment}";
 
-
-                        if ($relatedModelFQN) {
-                            // $this->warn("Checking for related model FQN : {$relatedModelFQN}");
-
-                            // Model exists
-                            if ($relatedModelFQN !== $this->modelName) {
-                                $classForUse = $this->getClassForUse($relatedModelFQN, $currentGeneratingModelModuleNamespace . '\\Models', $uses);
-                                $relationshipTargetClass = "{$classForUse}::class";
-                            } else {
-                                $relationshipTargetClass = "{$this->modelName}::class";
-                            }
-                        } else {
-
-                            // $this->warn("Checking for related model : {$relatedModelName}");
-
-
-                            // Model does not exist, generate placeholder
+                        if ($relatedModelFQN) { // Model exists
+                            $classForUse = $this->getClassForUse($relatedModelFQN, $currentGeneratingModelModuleNamespace . '\\Models', $uses);
+                            $relationshipTargetClass = "{$classForUse}::class";
+                        } else { // Model does not exist, generate placeholder
                             // Attempt to guess the most likely namespace for the placeholder
                             $potentialAppModel = "App\\Models\\{$relatedModelName}";
-                            // $potentialCurrentModuleModel = $currentGeneratingModelModuleNamespace . "\\Models\\{$relatedModelName}";
-                            $potentialCurrentModuleModel = "{$relatedModelName}";
+                            $potentialCurrentModuleModel = $currentGeneratingModelModuleNamespace . "\\Models\\{$relatedModelName}";
 
                             // Prefer App\Models if it's a common model, otherwise current module
                             // This is a heuristic.
-                            // if (in_array($relatedModelName, ['User', 'Team', 'Category', 'Tag', 'Role', 'Permission'])) { // Common models
-                            if (in_array($relatedModelName, ['Team',  'Role', 'Permission'])) {
-                                // Common models
-                                if ($potentialAppModel !== $this->modelName) {
-                                    $uses[] = " use {$potentialAppModel}; {$useStatementCommentUse}";
-                                    $relationshipTargetClass = "{$potentialAppModel}::class  {$useStatementComment}";
-                                }
+                            if (in_array($relatedModelName, ['User', 'Team', 'Category', 'Tag', 'Role', 'Permission'])) { // Common models
+                                $uses[] = "// use {$potentialAppModel}; {$useStatementComment}";
+                                $relationshipTargetClass = "\\{$potentialAppModel}::class; // {$useStatementComment}";
                             } else {
-                                if ($potentialCurrentModuleModel !== $this->modelName) {
-                                    $uses[] = " use {$potentialCurrentModuleModel}; {$useStatementCommentUse}";
-                                    $relationshipTargetClass = "{$potentialCurrentModuleModel}::class  {$useStatementComment}";
-                                }
+                                $uses[] = "// use {$potentialCurrentModuleModel}; {$useStatementComment}";
+                                $relationshipTargetClass = "\\{$potentialCurrentModuleModel}::class; // {$useStatementComment}";
                             }
-                            $this->alert("Model '{$relatedModelName}' for column '{$columnName}' not found. Generated a placeholder relationship.");
+                            $this->warn("Model '{$relatedModelName}' for column '{$columnName}' not found. Generated a placeholder relationship.");
                         }
-
-                        // $functionName = Str::camel(Str::singular($otherTableName));
-
                         $relationships[] = "public function {$relationName}()\n    {\n        return \$this->belongsTo({$relationshipTargetClass}, '{$columnName}');\n    }";
                     }
                 }
@@ -569,7 +506,7 @@ class MakeCrudModuleCommand extends Command
             '{{uses}}' => implode("\n", array_unique($uses)),
             '{{fillableProperties}}' => implode(",\n        ", array_unique($fillable)),
             '{{casts}}' => implode(",\n        ", array_unique($casts)),
-            '{{dates}}' => !empty($dates) ? "\n        " . implode(",\n        ", array_unique($dates)) . "\n    " : '',
+            '{{dates}}' => !empty($dates) ? "protected \$dates = [\n        " . implode(",\n        ", array_unique($dates)) . "\n    ];" : '',
             '{{relationships}}' => implode("\n\n    ", $relationships),
             '{{dispatchesEvents}}' => $dispatchesEvents,
         ];
@@ -577,114 +514,34 @@ class MakeCrudModuleCommand extends Command
         $this->writeFile($this->basePath . '/Models/' . $this->modelName . '.php', $content);
     }
 
-    /*protected function findRelatedModelFQN($relatedModelName, $currentModelModuleNamespaceRoot)
-    {
-        // Namespace of the module where the *current model is being generated*
-        // e.g., DryRun\MyModule\Models or Modules\MyModule\Models
-        $currentModuleModelsNamespace = $currentModelModuleNamespaceRoot . '\\Models';
-
-
-        // 1. Check within the same module's Models directory (e.g., DryRun\MyModule\Models\RelatedModel)
-        if (class_exists("{$currentModuleModelsNamespace}\\{$relatedModelName}")) {
-            return "{$currentModuleModelsNamespace}\\{$relatedModelName}";
-        }
-
-        // 2. Check App\Models (standard Laravel app models)
-        if (class_exists("App\\Models\\{$relatedModelName}")) {
-            return "App\\Models\\{$relatedModelName}";
-        }
-
-        // 3. Check other *actual* Modules (Modules\OtherModule\Models\RelatedModel)
-        // This part should always look in the 'Modules' directory, not 'DryRun' for inter-module relations.
-        $allActualModules = File::glob(base_path('Modules/*'), GLOB_ONLYDIR);
-        foreach ($allActualModules as $modulePath) {
-            $module = basename($modulePath);
-            // Skip if it's the current module we are generating (already checked by $currentModuleModelsNamespace)
-            // Note: $this->moduleName is the simple name like 'Product'
-            if ($module === $this->moduleName) {
-                continue;
-            }
-
-            $classToCheck = "Modules\\{$module}\\Models\\{$relatedModelName}";
-            if ($this->isDryRun) {
-                // In dry run, check the DryRun namespace
-                $classToCheck = "DryRun\\{$module}\\Models\\{$relatedModelName}";
-            }
-
-            if (class_exists($classToCheck)) {
-                return $classToCheck;
-            }
-        }
-        $this->alert("Could not find FQN for related model: {$relatedModelName}. Relationship may be incomplete.");
-        // Fallback, or you could return a placeholder.
-        return null;
-    }*/
     protected function findRelatedModelFQN($relatedModelName, $currentModelModuleNamespaceRoot)
     {
         $currentModuleModelsNamespace = $currentModelModuleNamespaceRoot . '\\Models';
 
-        // --- Add this check ---
-        // If the related model is the model currently being generated within its own module structure,
-        // assume it will exist at its intended FQN and return that path without a class_exists check.
-        $generatingNamespace = $this->isDryRun ? 'DryRun\\' . $this->moduleName : 'Modules\\' . $this->moduleName;
-        if ($relatedModelName === $this->modelName && $currentModelModuleNamespaceRoot === $generatingNamespace) {
-            return "{$currentModuleModelsNamespace}\\{$relatedModelName}";
-        }
-        // --- End of added check ---
-
-        // 1. Check within the same module's Models directory (e.g., DryRun\MyModule\Models\RelatedModel)
         if (class_exists("{$currentModuleModelsNamespace}\\{$relatedModelName}")) {
             return "{$currentModuleModelsNamespace}\\{$relatedModelName}";
         }
-
-        // 2. Check App\Models (standard Laravel app models)
         if (class_exists("App\\Models\\{$relatedModelName}")) {
             return "App\\Models\\{$relatedModelName}";
         }
-
-        // 3. Check other *actual* Modules
         $allActualModules = File::glob(base_path('Modules/*'), GLOB_ONLYDIR);
         foreach ($allActualModules as $modulePath) {
             $module = basename($modulePath);
             if ($module === $this->moduleName) {
                 continue;
             }
-
-            // Determine the namespace to check based on whether it's a dry run or not,
-            // and if we are checking for relations in other potential dry-run modules
-            // or actual modules. For inter-module relations, it usually refers to actual module paths.
-            // The original logic for $classToCheck based on $this->isDryRun might need review
-            // depending on the desired behavior for cross-module relations during dry-run.
-            // The most common case is that the related model would be in an *actual* module,
-            // or in App\Models, or within the *current* dry-run module.
-
-            $classToCheckInActual = "Modules\\{$module}\\Models\\{$relatedModelName}";
-            if (class_exists($classToCheckInActual)) {
-                return $classToCheckInActual;
-            }
-
-            // If also checking cross-DryRun module (less common unless generating multiple interlinked dry-run modules simultaneously)
-            if ($this->isDryRun) {
-                $classToCheckInDryRun = "DryRun\\{$module}\\Models\\{$relatedModelName}";
-                if (class_exists($classToCheckInDryRun)) {
-                    return $classToCheckInDryRun;
-                }
+            if (class_exists("Modules\\{$module}\\Models\\{$relatedModelName}")) {
+                return "Modules\\{$module}\\Models\\{$relatedModelName}";
             }
         }
-
-        $this->alert("Could not find FQN for related model: {$relatedModelName}. Relationship may be incomplete.");
-        return null; // Or return a placeholder FQN string
+        return null;
     }
 
     protected function getClassForUse($fqcn, $currentNamespace, &$usesArray)
     {
-        // $currentNamespace here is the namespace of the file being written,
-        // e.g., DryRun\MyModule\Models or Modules\MyModule\Models
         if (str_starts_with($fqcn, $currentNamespace . '\\')) {
-            // It's in the same namespace, no 'use' needed, just the class name.
             return Str::afterLast($fqcn, '\\');
         }
-        // It's in a different namespace, add 'use' statement and return class name.
         $usesArray[] = "use {$fqcn};";
         return Str::afterLast($fqcn, '\\');
     }
@@ -698,162 +555,98 @@ class MakeCrudModuleCommand extends Command
                 $tables = DB::select('SHOW TABLES');
                 $dbNameKey = 'Tables_in_' . DB::getDatabaseName();
                 foreach ($tables as $table) {
-
-                    if (strtolower($table->$dbNameKey) !== strtolower($this->tableName)) {
-
-                        $allTableNames[] = $table->$dbNameKey;
-                    }
+                    $allTableNames[] = $table->$dbNameKey;
                 }
             } elseif ($dbDriver === 'sqlite') {
                 $tables = DB::select("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';");
                 foreach ($tables as $table) {
-                    if (strtolower($table->name) !== strtolower($this->tableName)) {
-                        $allTableNames[] = $table->name;
-                    }
+                    $allTableNames[] = $table->name;
                 }
             } else {
                 $this->comment("Automatic detection of hasMany/belongsToMany relationships for '{$dbDriver}' is limited. Please review and add manually if needed.");
                 return;
             }
         } catch (\Exception $e) {
-            $this->alert("Could not list all tables for advanced relationship detection: " . $e->getMessage());
+            $this->warn("Could not list all tables for advanced relationship detection: " . $e->getMessage());
             return;
         }
 
         $currentModelForeignKey = Str::snake($this->modelName) . '_id';
 
         foreach ($allTableNames as $otherTableName) {
-
-            // $this->line("Current table: {$this->tableName}");
-            // $this->line("Checking table: {$otherTableName}");
-            $continue = true;
-            if (strtolower($otherTableName) === strtolower($this->tableName)) {
-                $continue = false; // Skip the same table
+            if ($otherTableName === $this->tableName) {
                 continue;
             }
 
-            if ($continue) {
+            // HasMany / HasOne
+            if (Schema::hasColumn($otherTableName, $currentModelForeignKey)) {
+                $relatedModelName = Str::studly(Str::singular($otherTableName));
+                $relationBaseName = Str::camel(Str::singular($otherTableName));
+                $useStatementComment = "// TODO: Create `{$relatedModelName}` model or ensure it's discoverable.";
+                $relationshipTargetClass = "\\{$currentGeneratingModelModuleNamespaceRoot}\\Models\\{$relatedModelName}::class; // {$useStatementComment}";
 
-
-                // HasMany / HasOne
-                if (Schema::hasColumn($otherTableName, $currentModelForeignKey)) {
-                    $relatedModelName = Str::studly(Str::singular($otherTableName));
-                    $relationBaseName = Str::camel(Str::singular($otherTableName));
-                    $useStatementCommentUse = "// TODO: Create `{$relatedModelName}` model or ensure it's discoverable.";
-                    $useStatementComment = "";
-                    // $relationshipTargetClass = "\\{$currentGeneratingModelModuleNamespaceRoot}\\Models\\{$relatedModelName}::class; // {$useStatementComment}";
-                    $relationshipTargetClass = "\\{$currentGeneratingModelModuleNamespaceRoot}\\Models\\{$relatedModelName}::class;";
-
-                    $relatedModelFQN = $this->findRelatedModelFQN($relatedModelName, $currentGeneratingModelModuleNamespaceRoot);
-                    if ($relatedModelFQN) {
-
-                        // $this->warn("Checking for related model FQN : {$relatedModelFQN}");
-
-                        if ($relatedModelFQN !== $this->modelName) {
-                            $classForUse = $this->getClassForUse($relatedModelFQN, $currentGeneratingModelModuleNamespaceRoot . '\\Models', $uses);
-                            $relationshipTargetClass = "{$classForUse}::class";
-                        } else {
-                            $relationshipTargetClass = "{$this->modelName}::class";
-                        }
+                $relatedModelFQN = $this->findRelatedModelFQN($relatedModelName, $currentGeneratingModelModuleNamespaceRoot);
+                if ($relatedModelFQN) {
+                    $classForUse = $this->getClassForUse($relatedModelFQN, $currentGeneratingModelModuleNamespaceRoot . '\\Models', $uses);
+                    $relationshipTargetClass = "{$classForUse}::class";
+                } else {
+                    $this->warn("Model '{$relatedModelName}' for table '{$otherTableName}' not found. Generated a placeholder relationship.");
+                    // Add a placeholder use statement
+                    $potentialAppModel = "App\\Models\\{$relatedModelName}";
+                    $potentialCurrentModuleModel = $currentGeneratingModelModuleNamespaceRoot . "\\Models\\{$relatedModelName}";
+                    if (in_array($relatedModelName, ['User', 'Team', 'Category', 'Tag', 'Role', 'Permission'])) {
+                        $uses[] = "// use {$potentialAppModel}; {$useStatementComment}";
+                        $relationshipTargetClass = "\\{$potentialAppModel}::class; // {$useStatementComment}";
                     } else {
-
-                        // $this->warn("Checking for related model : {$relatedModelName}");
-
-
-                        $this->alert("Model '{$relatedModelName}' for table '{$otherTableName}' not found. Generated a placeholder relationship.");
-                        // Add a placeholder use statement
-                        $potentialAppModel = "App\\Models\\{$relatedModelName}";
-                        // $potentialCurrentModuleModel = $currentGeneratingModelModuleNamespaceRoot . "\\Models\\{$relatedModelName}";
-                        $potentialCurrentModuleModel = "{$relatedModelName}";
-
-                        // if (in_array($relatedModelName, ['Team', 'Category', 'Tag', 'Role', 'Permission'])) {
-                        if (in_array($relatedModelName, ['Team',  'Role', 'Permission'])) {
-                            if ($potentialAppModel !== $this->modelName) {
-                                $uses[] = " use {$potentialAppModel}; {$useStatementCommentUse}";
-                                $relationshipTargetClass = "{$potentialAppModel}::class  {$useStatementComment}";
-                            }
-                        } else {
-                            if ($potentialCurrentModuleModel !== $this->modelName) {
-                                $uses[] = " use {$potentialCurrentModuleModel}; {$useStatementCommentUse}";
-                                $relationshipTargetClass = "{$potentialCurrentModuleModel}::class  {$useStatementComment}";
-                            }
-                        }
-                    }
-
-                    if (Str::singular($otherTableName) === $otherTableName) { // Heuristic for HasOne
-                        $relationships[] = "public function {$relationBaseName}()\n    {\n        return \$this->hasOne({$relationshipTargetClass}, '{$currentModelForeignKey}');\n    }";
-                    } else { // HasMany
-                        $relationships[] = "public function ". Str::plural($relationBaseName) ."()\n    {\n        return \$this->hasMany({$relationshipTargetClass}, '{$currentModelForeignKey}');\n    }";
+                        $uses[] = "// use {$potentialCurrentModuleModel}; {$useStatementComment}";
+                        $relationshipTargetClass = "\\{$potentialCurrentModuleModel}::class; // {$useStatementComment}";
                     }
                 }
 
-                // BelongsToMany
-                $parts = explode('_', $otherTableName);
-                if (count($parts) >= 2) { // Allow for longer pivot table names like 'moduleA_moduleB_pivot'
-                    // Convention: table1_table2 or singular1_singular2
-                    $table1 = Str::singular($parts[0]);
-                    $table2 = Str::singular($parts[1]);
-                    $currentModelSingularSnake = Str::singular(Str::snake($this->modelName));
+                if (Str::singular($otherTableName) === $otherTableName) { // Heuristic for HasOne
+                    $relationships[] = "public function {$relationBaseName}()\n    {\n        return \$this->hasOne({$relationshipTargetClass}, '{$currentModelForeignKey}');\n    }";
+                } else { // HasMany
+                    $relationships[] = "public function ". Str::plural($relationBaseName) ."()\n    {\n        return \$this->hasMany({$relationshipTargetClass}, '{$currentModelForeignKey}');\n    }";
+                }
+            }
 
-                    $currentModelName = Str::studly($this->modelName);
+            // BelongsToMany
+            $parts = explode('_', $otherTableName);
+            if (count($parts) >= 2) { // Allow for longer pivot table names like 'moduleA_moduleB_pivot'
+                // Convention: table1_table2 or singular1_singular2
+                $table1 = Str::singular($parts[0]);
+                $table2 = Str::singular($parts[1]);
+                $currentModelSingularSnake = Str::singular(Str::snake($this->modelName));
 
-                    if ($table1 === $currentModelSingularSnake || $table2 === $currentModelSingularSnake) {
-                        $otherModelSingularSnake = ($table1 === $currentModelSingularSnake) ? $table2 : $table1;
-                        $relatedModelName = Str::studly($otherModelSingularSnake);
+                if ($table1 === $currentModelSingularSnake || $table2 === $currentModelSingularSnake) {
+                    $otherModelSingularSnake = ($table1 === $currentModelSingularSnake) ? $table2 : $table1;
+                    $relatedModelName = Str::studly($otherModelSingularSnake);
 
-                        $fk1 = Str::snake($currentModelSingularSnake) . '_id';
-                        $fk2 = Str::snake($otherModelSingularSnake) . '_id';
+                    $fk1 = Str::snake($currentModelSingularSnake) . '_id';
+                    $fk2 = Str::snake($otherModelSingularSnake) . '_id';
 
-                        if (Schema::hasColumn($otherTableName, $fk1) && Schema::hasColumn($otherTableName, $fk2)) {
-                            $relationName = Str::plural(Str::camel($otherModelSingularSnake));
-                            $useStatementCommentUse = "// TODO: Create `{$relatedModelName}` model or ensure it's discoverable.";
-                            $useStatementComment = "";
-                            // $relationshipTargetClass = "\\{$currentGeneratingModelModuleNamespaceRoot}\\Models\\{$relatedModelName}::class; // {$useStatementComment}";
-                            $relationshipTargetClass = "\\{$currentGeneratingModelModuleNamespaceRoot}\\Models\\{$relatedModelName}::class;";
+                    if (Schema::hasColumn($otherTableName, $fk1) && Schema::hasColumn($otherTableName, $fk2)) {
+                        $relationName = Str::plural(Str::camel($otherModelSingularSnake));
+                        $useStatementComment = "// TODO: Create `{$relatedModelName}` model or ensure it's discoverable.";
+                        $relationshipTargetClass = "\\{$currentGeneratingModelModuleNamespaceRoot}\\Models\\{$relatedModelName}::class; // {$useStatementComment}";
 
-                            $relatedModelFQN = $this->findRelatedModelFQN($relatedModelName, $currentGeneratingModelModuleNamespaceRoot);
-                            if ($relatedModelFQN) {
-
-                                // $this->warn("Checking for related model: {$relatedModelFQN}");
-
-                                if ($relatedModelFQN !== $this->modelName) {
-                                    $classForUse = $this->getClassForUse($relatedModelFQN, $currentGeneratingModelModuleNamespaceRoot . '\\Models', $uses);
-                                    $relationshipTargetClass = "{$classForUse}::class";
-                                    $currentModelName = Str::studly($classForUse);
-                                } else {
-                                    $relationshipTargetClass = "{$this->modelName}::class";
-                                    $currentModelName = Str::studly($this->modelName);
-                                }
+                        $relatedModelFQN = $this->findRelatedModelFQN($relatedModelName, $currentGeneratingModelModuleNamespaceRoot);
+                        if ($relatedModelFQN) {
+                            $classForUse = $this->getClassForUse($relatedModelFQN, $currentGeneratingModelModuleNamespaceRoot . '\\Models', $uses);
+                            $relationshipTargetClass = "{$classForUse}::class";
+                        } else {
+                            $this->warn("Model '{$relatedModelName}' for pivot table '{$otherTableName}' not found. Generated a placeholder relationship.");
+                            $potentialAppModel = "App\\Models\\{$relatedModelName}";
+                            $potentialCurrentModuleModel = $currentGeneratingModelModuleNamespaceRoot . "\\Models\\{$relatedModelName}";
+                            if (in_array($relatedModelName, ['User', 'Team', 'Category', 'Tag', 'Role', 'Permission'])) {
+                                $uses[] = "// use {$potentialAppModel}; {$useStatementComment}";
+                                $relationshipTargetClass = "\\{$potentialAppModel}::class; // {$useStatementComment}";
                             } else {
-                                $this->alert("Model '{$relatedModelName}' for pivot table '{$otherTableName}' not found. Generated a placeholder relationship.");
-                                $potentialAppModel = "App\\Models\\{$relatedModelName}";
-                                // $potentialCurrentModuleModel = $currentGeneratingModelModuleNamespaceRoot . "\\Models\\{$relatedModelName}";
-                                $potentialCurrentModuleModel = "{$relatedModelName}";
-                                // if (in_array($relatedModelName, ['User', 'Team', 'Category', 'Tag', 'Role', 'Permission'])) {
-                                if (in_array($relatedModelName, ['Team',  'Role', 'Permission'])) {
-                                    if ($potentialAppModel !== $this->modelName) {
-                                        $currentModelName = Str::studly($potentialAppModel);
-                                        $uses[] = " use {$potentialAppModel}; {$useStatementCommentUse}";
-                                        $relationshipTargetClass = "{$potentialAppModel}::class  {$useStatementComment}";
-                                    }
-                                } else {
-                                    if ($potentialCurrentModuleModel !== $this->modelName) {
-                                        $currentModelName = Str::studly($potentialCurrentModuleModel);
-                                        $uses[] = " use {$potentialCurrentModuleModel}; {$useStatementCommentUse}";
-                                        $relationshipTargetClass = "{$potentialCurrentModuleModel}::class  {$useStatementComment}";
-                                    }
-                                }
+                                $uses[] = "// use {$potentialCurrentModuleModel}; {$useStatementComment}";
+                                $relationshipTargetClass = "\\{$potentialCurrentModuleModel}::class; // {$useStatementComment}";
                             }
-
-                            if ($currentModelName === Str::studly($this->modelName)) {
-                                $functionName = Str::camel(Str::studly($this->modelName).$otherTableName);
-                                $relationshipTargetClass = "{$this->modelName}::class";
-                            } else {
-                                $functionName = Str::camel(Str::singular(str_replace("::class", "", $relationshipTargetClass).$otherTableName));
-                            }
-
-                            $relationships[] = "public function {$functionName}()\n    {\n        return \$this->belongsToMany({$relationshipTargetClass}, '{$otherTableName}', '{$fk1}', '{$fk2}');\n    }";
                         }
+                        $relationships[] = "public function {$relationName}()\n    {\n        return \$this->belongsToMany({$relationshipTargetClass}, '{$otherTableName}', '{$fk1}', '{$fk2}');\n    }";
                     }
                 }
             }
@@ -932,7 +725,6 @@ class MakeCrudModuleCommand extends Command
         $eventTypes = ['model_created', 'model_updated', 'model_deleted'];
         foreach ($eventTypes as $eventType) {
             $replacements = $this->getReplacements();
-            // Construct the event name based on the model name and event type
             $actualEventNameForFile = $this->modelName . Str::studly(str_replace('model_', '', $eventType));
             $currentEventPlaceholder = '{{' . Str::studly(str_replace('_', '', $eventType)) . 'Event}}';
             $replacements[$currentEventPlaceholder] = $actualEventNameForFile;
@@ -1003,8 +795,6 @@ class MakeCrudModuleCommand extends Command
         if (!empty($columns)) {
             foreach ($columns as $column) {
                 if (!in_array($column, $excludedColumns)) {
-                    // For date fields, ensure they are formatted if not null
-                    // Include deleted_at if you want it in API response
                     if (Str::endsWith($column, '_at') || $column === 'deleted_at') {
                         $resourceFields[] = "'{$column}' => \$this->whenNotNull(\$this->{$column} ? \$this->{$column}->toIso8601String() : null)";
                     } else {
@@ -1035,38 +825,29 @@ class MakeCrudModuleCommand extends Command
     {
         $viewDirName = Str::kebab(Str::plural($this->modelName));
         //$viewPathBase = $this->basePath . '/views/' . $viewDirName; // Corrected path
-        $viewPathBase = $this->basePath . '/views';
+        $viewPathBase = $this->basePath . '/views/';
         // Ensure this specific directory is created
-        if (!File::isDirectory($viewPathBase)) {
-            $this->makeDirectory($viewPathBase);
-        }
+        $this->makeDirectory($viewPathBase);
 
         $columns = $this->getTableColumns();
         $excludedColumns = ['id', 'created_at', 'updated_at', 'deleted_at', 'password', 'remember_token'];
         $viewFieldsForShow = [];
         $formFieldsString = '';
-        // Start with ID
         $tableHeaders = "<th>ID</th>\n                    ";
 
         if (!empty($columns)) {
-            // Add ID to show fields if not excluded (it's usually not)
             if (!in_array('id', $excludedColumns)) {
                 $viewFieldsForShow[] = 'id';
             }
-
             foreach ($columns as $columnName) {
                 if (in_array($columnName, $excludedColumns)) {
                     continue;
                 }
                 $label = Str::title(str_replace('_', ' ', $columnName));
-                // Add to show view
                 $viewFieldsForShow[] = $columnName;
                 $tableHeaders .= "<th>{$label}</th>\n                    ";
-
                 $fieldType = $this->determineFieldType($columnName);
-                // No .stub needed here
                 $fieldStubContent = $this->getStubContent("fields/{$fieldType}");
-
                 $fieldReplacements = [
                     '{{fieldName}}' => $columnName,
                     '{{fieldLabel}}' => $label,
@@ -1082,9 +863,7 @@ class MakeCrudModuleCommand extends Command
         }
 
         $commonReplacements = $this->getReplacements();
-        // Pass 'views/actions.blade' to getStubContent, which will append '.stub'
         $actionColumnContent = $this->populateStub('views/actions.blade', $commonReplacements + ['itemVar' => '$item']);
-
 
         $viewReplacements = $commonReplacements + [
             '{{formFields}}' => rtrim($formFieldsString),
@@ -1099,12 +878,11 @@ class MakeCrudModuleCommand extends Command
         $this->writeFile($viewPathBase . '/_form.blade.php', $this->populateStub('views/_form.blade', $formOnlyReplacements));
 
         foreach (['index', 'create', 'edit', 'show', 'trashed'] as $view) {
-            // e.g., 'views/index.blade'
             $stubPath = 'views/' . $view . '.blade';
             if (File::exists($this->stubsPath . '/' . $stubPath . '.stub')) {
                 $this->writeFile($viewPathBase . '/' . $view . '.blade.php', $this->populateStub($stubPath, $viewReplacements));
             } else {
-                $this->alert("View stub not found: {$this->stubsPath}/{$stubPath}.stub. Skipping {$view}.blade.php.");
+                $this->warn("View stub not found: {$this->stubsPath}/{$stubPath}.stub. Skipping {$view}.blade.php.");
             }
         }
     }
@@ -1117,7 +895,6 @@ class MakeCrudModuleCommand extends Command
         if (Str::contains($columnName, ['description', 'notes', 'content', 'details', 'message', 'bio', 'summary'])) {
             return 'textarea';
         }
-
         $dbType = null;
         if (Schema::hasTable($this->tableName) && Schema::hasColumn($this->tableName, $columnName)) {
             try {
@@ -1157,15 +934,12 @@ class MakeCrudModuleCommand extends Command
             return 'password';
         }
         if (Str::contains($columnName, ['url', 'link'])) {
-            // Assuming you might have a url.stub or fallback to text
             return 'url';
         }
         if (Str::contains($columnName, ['phone', 'mobile', 'tel'])) {
-            // Assuming you might have a tel.stub or fallback to text
             return 'tel';
         }
         if (Str::contains($columnName, ['color', 'hex'])) {
-            // Assuming you might have a color.stub or fallback to text
             return 'color';
         }
         return 'text';
@@ -1177,17 +951,12 @@ class MakeCrudModuleCommand extends Command
             $relatedModelName = Str::studly(Str::singular(str_replace('_id', '', $columnName)));
             $relatedPluralVar = Str::plural(Str::camel($relatedModelName));
             $displayName = 'name'; // Default
-            // if (in_array($relatedModelName, ['User', 'Team', 'Category', 'Type', 'Status'])) {
-            if (in_array($relatedModelName, ['Team',  'Role', 'Permission'])) {
+            if (in_array($relatedModelName, ['User', 'Team', 'Category', 'Type', 'Status'])) {
                 $displayName = 'name';
             }
 
             return "<option value=\"\">-- Select {$relatedModelName} --</option>\n                    @foreach(\${$relatedPluralVar} ?? [] as \$relatedItem)\n                        <option value=\"{{\$relatedItem->id}}\" {{ (old('{$columnName}', \${$this->getModelVarName()}->{$columnName} ?? null) == \$relatedItem->id) ? 'selected' : '' }}>{{\$relatedItem->{$displayName} ?? \$relatedItem->id}}</option>\n                    @endforeach";
         }
-        // For boolean-like fields, you might want a Yes/No select instead of a checkbox sometimes
-        // if (Str::startsWith($columnName, 'is_') || Str::startsWith($columnName, 'has_')) {
-        //     return "<option value=\"1\" {{ (old('{$columnName}', \${$this->getModelVarName()}->{$columnName} ?? 0) == 1) ? 'selected' : '' }}>Yes</option>\n                    <option value=\"0\" {{ (old('{$columnName}', \${$this->getModelVarName()}->{$columnName} ?? 0) == 0) ? 'selected' : '' }}>No</option>";
-        // }
         return '';
     }
 
@@ -1203,31 +972,26 @@ class MakeCrudModuleCommand extends Command
     protected function generateServiceProvider()
     {
         $replacementsGlobal = $this->getReplacements();
-        // This will be DryRun\Mod or Modules\Mod
         $generatedNamespaceRoot = $replacementsGlobal['{{namespace}}'];
 
         $policiesArray = [];
         $bindingsArray = [];
         $observersArray = [];
         if ($this->generatePolicy) {
-            // Policy maps the *actual* model (Modules\...) to the generated policy (DryRun\...\P or Modules\...\P)
             $policiesArray[] = "\\{$replacementsGlobal['{{actualModelFullName}}']}::class => \\{$generatedNamespaceRoot}\\Policies\\".$this->modelName."Policy::class,";
         }
         if ($this->generateService) {
             $bindingsArray[] = "\$this->app->bind(\\{$generatedNamespaceRoot}\\Contracts\\".$this->modelName."ServiceInterface::class, \\{$generatedNamespaceRoot}\\Services\\".$this->modelName."Service::class);";
         }
         if ($this->generateObserver) {
-            // Observer observes the *actual* model (Modules\...) using the generated observer (DryRun\...\O or Modules\...\O)
             $observersArray[] = "\\{$replacementsGlobal['{{actualModelFullName}}']}::class => \\{$generatedNamespaceRoot}\\Observers\\".$this->modelName."Observer::class);";
         }
 
         $replacements = $replacementsGlobal + [
-            '{{isDryRun}}' => $this->isDryRun ? 'true' : 'false',
             '{{hasApiRoutes}}' => $this->createApi ? 'true' : 'false', '{{hasWebRoutes}}' => 'true',
             '{{policies}}' => empty($policiesArray) ? "// Model Policies" : implode("\n        ", $policiesArray),
             '{{bindings}}' => empty($bindingsArray) ? "// Service Bindings" : implode("\n        ", $bindingsArray),
             '{{observers}}' => empty($observersArray) ? "// Model Observers" : implode("\n        ", $observersArray),
-            // for loadViewsFrom
             '{{viewDirectoryName}}' => Str::kebab(Str::plural($this->modelName)),
         ];
         $this->writeFile($this->basePath . '/Providers/' . $this->moduleName . 'ServiceProvider.php', $this->populateStub('provider', $replacements));
@@ -1240,252 +1004,5 @@ class MakeCrudModuleCommand extends Command
     protected function getServiceVarName()
     {
         return Str::camel($this->modelName . 'Service');
-    }
-
-    /**
-       * Register the Service Provider in bootstrap/providers.php.
-       *
-       * @param bool $isDryRun
-       * @param string $serviceProviderClass The FQN of the service provider to register.
-       * @param string $filePath The path to the providers file.
-       * @return bool True if successful (or successfully simulated), false otherwise.
-       */
-    protected function registerServiceProviderInBootstrapProviders(bool $isDryRun, string $serviceProviderClass, string $filePath)
-    {
-        if (!File::exists($filePath)) {
-            // This should ideally be caught by the dispatcher, but good for safety.
-            $this->error("File {$filePath} not found.");
-            return false;
-        }
-
-        $content = File::get($filePath);
-
-        if (Str::contains($content, $serviceProviderClass . '::class')) {
-            $this->comment("Service Provider '{$serviceProviderClass}' already registered in {$filePath}.");
-            return true;
-        }
-
-        $newProviderLine = "    {$serviceProviderClass}::class,"; // Standard 4-space indentation
-        $lines = explode("\n", $content);
-        $insertAtIndex = -1;
-        $originalLineCount = count($lines);
-
-        for ($i = $originalLineCount - 1; $i >= 0; $i--) {
-            $trimmedLine = trim($lines[$i]);
-            if ($trimmedLine === '];' || Str::startsWith($trimmedLine, ']')) {
-                $insertAtIndex = $i;
-                break;
-            }
-        }
-
-        $newContent = $content; // Default to no change
-        $madeChange = false;
-
-        if ($insertAtIndex !== -1) {
-            $tempLines = $lines; // Work on a copy for simulation and modification
-            if ($insertAtIndex > 0) {
-                $lineBeforeInsertIndex = -1;
-                for ($j = $insertAtIndex - 1; $j >= 0; $j--) {
-                    if (trim($tempLines[$j]) !== '' && !Str::startsWith(trim($tempLines[$j]), '//') && Str::contains($tempLines[$j], '::class')) {
-                        $lineBeforeInsertIndex = $j;
-                        break;
-                    }
-                    if (Str::contains($tempLines[$j], '[')) {
-                        break;
-                    }
-                }
-                if ($lineBeforeInsertIndex !== -1) {
-                    $lineContent = rtrim($tempLines[$lineBeforeInsertIndex]);
-                    if (Str::endsWith($lineContent, '::class')) {
-                        $tempLines[$lineBeforeInsertIndex] = $lineContent . ',';
-                    }
-                }
-            }
-            array_splice($tempLines, $insertAtIndex, 0, [$newProviderLine]);
-            $newContent = implode("\n", $tempLines);
-            $madeChange = ($newContent !== $content);
-        } else {
-            $this->error("[Warning] Could not find a clear insertion point (e.g., closing '];') in {$filePath}. Registration simulation/attempt might be inaccurate.");
-            // No change will be made if we can't find the spot
-        }
-
-        if (!$madeChange && !Str::contains($content, $serviceProviderClass . '::class')) {
-            $this->comment("No structural change needed or possible for '{$serviceProviderClass}' in {$filePath} based on current logic.");
-            if ($isDryRun) {
-                $this->line("  [Dry Run] If the provider is missing, manual addition to {$filePath} would be: <fg=cyan>{$newProviderLine}</>");
-            }
-            return true; // No effective change needed from the script's perspective if not already present or can't insert
-        }
-
-
-        /*if ($isDryRun) {
-            $this->info("[Dry Run] Service Provider '{$serviceProviderClass}' would be added to {$filePath}.");
-            $this->line("  [Dry Run] Approximate line to be inserted: <fg=cyan>{$newProviderLine}</>");
-            $this->comment("  (Full file content would be adjusted to include this line correctly)");
-            return true;
-        }*/
-
-        // Actual write for non-dry run
-        if ($madeChange) { // Only write if a structural change was determined
-            if (File::put($filePath, $newContent)) {
-                $this->info("Service Provider '{$serviceProviderClass}' was successfully added to {$filePath}.");
-                $this->line("Please <fg=yellow;options=bold>verify the registration</> and formatting.");
-                return true;
-            } else {
-                $this->error("Failed to write to {$filePath}. Please check permissions and register '{$serviceProviderClass}' manually.");
-                return false;
-            }
-        }
-        return true; // If no change was needed because it's already effectively there or logic decided no change.
-    }
-
-    /**
-     * Register the Service Provider in config/app.php.
-     * @param bool $isDryRun
-     * @param string $serviceProviderClass The FQN of the service provider.
-     * @param string $filePath The path to config/app.php.
-     * @return bool True if successful (or successfully simulated), false otherwise.
-     */
-    protected function registerServiceProviderInConfig(bool $isDryRun, string $serviceProviderClass, string $filePath)
-    {
-        if (!File::exists($filePath)) {
-            $this->error("File {$filePath} not found.");
-            return false;
-        }
-
-        $content = File::get($filePath);
-        $serviceProviderClassEscaped = str_replace('\\', '\\\\', $serviceProviderClass);
-
-        if (Str::contains($content, $serviceProviderClassEscaped)) {
-            $this->comment("Service Provider '{$serviceProviderClass}' already registered in {$filePath}.");
-            return true;
-        }
-
-        $newProviderEntry = "        {$serviceProviderClass},"; // 8 spaces for config/app.php
-        $newContent = $content;
-        $madeChange = false;
-
-        $anchorProvider = 'App\\Providers\\RouteServiceProvider::class,';
-        $anchorProviderEscaped = str_replace('\\', '\\\\', $anchorProvider);
-
-        if (Str::contains($content, $anchorProviderEscaped)) {
-            $this->line("Determining registration strategy: attempting after '{$anchorProvider}' in {$filePath}.");
-            $replacementString = $anchorProviderEscaped . "\n" . $newProviderEntry;
-            $calculatedContent = Str::replaceFirst($anchorProviderEscaped, $replacementString, $content);
-            if ($calculatedContent !== $content) {
-                $newContent = $calculatedContent;
-                $madeChange = true;
-            }
-        } else {
-            $this->line("Determining registration strategy: '{$anchorProvider}' not found. Attempting near the end of 'providers' array in {$filePath}.");
-            $pattern = '/(\'providers\'\s*=>\s*\[\s*)((?:.|\s)*?)(\s*\])/m';
-            if (preg_match($pattern, $content, $matches)) {
-                $arrayOpen = $matches[1];
-                $arrayContent = rtrim($matches[2]);
-                $arrayClose = $matches[3];
-                $tempContent = $arrayOpen;
-                if (!empty($arrayContent)) {
-                    $tempContent .= $arrayContent;
-                    if (!Str::endsWith($arrayContent, ',')) {
-                        $tempContent .= ',';
-                    }
-                    $tempContent .= "\n";
-                }
-                $tempContent .= $newProviderEntry . ($arrayClose === "]" || Str::startsWith(trim($arrayClose), ']') ? "\n    ]" : $arrayClose); // Ensure closing bracket on new line if just ']'
-
-                $calculatedContent = Str::replaceFirst($matches[0], trim($tempContent), $content); // Use trim on tempContent to avoid too many newlines from regex artifacts
-
-                if ($calculatedContent !== $content) {
-                    $newContent = $calculatedContent;
-                    $madeChange = true;
-                }
-
-            } else {
-                $this->error("[Warning] Could not find 'providers' array in a recognizable format in {$filePath}.");
-            }
-        }
-
-        if (!$madeChange && !Str::contains($content, $serviceProviderClassEscaped)) {
-            $this->comment("No structural change determined or possible for '{$serviceProviderClass}' in {$filePath}.");
-            if ($isDryRun) {
-                $this->line("  [Dry Run] If the provider is missing, manual addition to {$filePath} would be: <fg=cyan>{$newProviderEntry}</>");
-            }
-            return true;
-        }
-
-
-        if ($isDryRun) {
-            if ($madeChange) {
-                $this->info("[Dry Run] Service Provider '{$serviceProviderClass}' would be added/updated in {$filePath}.");
-                $this->line("  [Dry Run] Approximate line to be inserted: <fg=cyan>{$newProviderEntry}</>");
-                $this->comment("  (Full file content would be adjusted)");
-            } elseif (!Str::contains($content, $serviceProviderClassEscaped)) { // Not already there, but no change made by logic
-                $this->info("[Dry Run] Service Provider '{$serviceProviderClass}' is not registered in {$filePath}. Manual registration would involve adding: <fg=cyan>{$newProviderEntry}</>");
-            }
-            return true;
-        }
-
-        if ($madeChange) {
-            if (File::put($filePath, $newContent)) {
-                $this->info("Service Provider '{$serviceProviderClass}' was successfully added to {$filePath}.");
-                $this->line("Please <fg=yellow;options=bold>verify the registration</> and formatting.");
-                return true;
-            } else {
-                $this->error("Failed to write to {$filePath}. Please check permissions and register '{$serviceProviderClass}' manually.");
-                return false;
-            }
-        }
-        return true; // If no change was made and not because it was already registered
-    }
-
-
-    /**
-     * Dispatches Service Provider registration to the appropriate method.
-     */
-    protected function autoRegisterServiceProvider()
-    {
-        $bootstrapProvidersPath = base_path('bootstrap/providers.php');
-        $configAppPath = config_path('app.php');
-        $actualModuleNamespace = 'Modules\\' . $this->moduleName;
-        $serviceProviderClass = "{$actualModuleNamespace}\\Providers\\{$this->moduleName}ServiceProvider";
-
-        if ($this->isDryRun) {
-            $serviceProviderClass = "DryRun\\" . $this->moduleName."\\Providers\\{$this->moduleName}ServiceProvider";
-        }
-
-        if (File::exists($bootstrapProvidersPath)) {
-            echo "came for boostrap\n";
-            $this->line("<fg=blue>Checking Service Provider registration: targeting bootstrap/providers.php (Laravel 11+ style)...</>");
-            $this->registerServiceProviderInBootstrapProviders($this->isDryRun, $serviceProviderClass, $bootstrapProvidersPath);
-        } elseif (File::exists($configAppPath)) {
-            $this->line("<fg=blue>bootstrap/providers.php not found. Checking Service Provider registration: targeting config/app.php (older style)...</>");
-            $this->registerServiceProviderInConfig($this->isDryRun, $serviceProviderClass, $configAppPath);
-        } else {
-            $this->error("Neither bootstrap/providers.php nor config/app.php found. Cannot auto-register Service Provider.");
-            $this->line("Please register '{$serviceProviderClass}' manually after setting up the module.");
-        }
-    }
-
-    protected function runPostCommands()
-    {
-        // Run composer dump-autoload -o
-        $this->line('Executing: composer dump-autoload -o');
-        $composerProcess = new Process(['composer', 'dump-autoload', '-o']);
-        $composerProcess->setWorkingDirectory(base_path());
-        try {
-            $composerProcess->mustRun();
-            $this->info($composerProcess->getOutput());
-        } catch (ProcessFailedException $exception) {
-            $this->error('Composer dump-autoload failed:');
-            $this->error($exception->getMessage());
-        }
-
-        // Run php artisan optimize:clear
-        $this->line('Executing: php artisan optimize:clear');
-        $this->call('optimize:clear');
-        $this->info('Caches cleared successfully.');
-
-        $this->info('Post-generation commands completed.');
-        $this->info('You can now proceed with the next steps to activate your module.');
     }
 }
