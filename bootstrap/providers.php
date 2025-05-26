@@ -6,4 +6,5 @@ return [
 
 
     DryRun\Products\Providers\ProductsServiceProvider::class,
+    DryRun\Brands\Providers\BrandsServiceProvider::class,
 ];

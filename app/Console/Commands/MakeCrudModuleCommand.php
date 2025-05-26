@@ -1034,8 +1034,8 @@ class MakeCrudModuleCommand extends Command
     protected function generateViews()
     {
         $viewDirName = Str::kebab(Str::plural($this->modelName));
-        //$viewPathBase = $this->basePath . '/views/' . $viewDirName; // Corrected path
-        $viewPathBase = $this->basePath . '/views';
+        $viewPathBase = $this->basePath . '/views/' . $viewDirName; // Corrected path
+        // $viewPathBase = $this->basePath . '/views';
         // Ensure this specific directory is created
         if (!File::isDirectory($viewPathBase)) {
             $this->makeDirectory($viewPathBase);
