@@ -81,6 +81,7 @@ This Artisan command (`php artisan make:crud-module`) accelerates development by
     **Example:**
     ```bash
     php artisan make:crud-module BlogPost --table=blog_posts --service --policy --observer
+    php artisan make:crud-module Brands --table=brands --dry-run --policy --service --observer --events  
     ```
 
 ## Phase 3: Post-Generation Activation

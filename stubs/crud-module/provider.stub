@@ -38,7 +38,7 @@ class {{moduleName}}ServiceProvider extends ServiceProvider
 
 
     protected $policies = [
-        // '{{actualModelFullName}}'::class => '{{namespace}}\Policies\{{policyName}}::class,
+         '{{actualModelFullName}}'::class => '{{namespace}}\Policies\{{policyName}}::class',
     ];
 
     public function __construct($app)
@@ -55,12 +55,12 @@ class {{moduleName}}ServiceProvider extends ServiceProvider
     {
         // Bind services if {{service}} option was used
         // Example:
-        // if (class_exists($this->moduleNamespace . '\\Services\\{{serviceName}}::class')) {
-        //     $this->app->bind(
-        //         $this->moduleNamespace . '\\Contracts\\{{serviceInterfaceName}}::class,
-        //         $this->moduleNamespace . '\\Services\\{{serviceName}}::class
-        //     );
-        // }
+         if (class_exists($this->moduleNamespace . '\\Services\\{{serviceName}}::class')) {
+             $this->app->bind(
+                 $this->moduleNamespace . '\\Contracts\\{{serviceInterfaceName}}::class',
+                 $this->moduleNamespace . '\\Services\\{{serviceName}}::class'
+             );
+         }
     }
 
     public function boot(): void
@@ -117,9 +117,9 @@ class {{moduleName}}ServiceProvider extends ServiceProvider
         // to point to Modules\ModuleName\Models\ModelName::class
         // And {{namespace}} for the policy is also correctly DryRun\ModName or Modules\ModName
         // Example:
-        // if (class_exists('{{actualModelFullName}}') && class_exists($this->moduleNamespace . '\\Policies\\{{policyName}}::class')) {
-        //     Gate::policy('{{actualModelFullName}}'::class, $this->moduleNamespace . '\\Policies\\{{policyName}}::class);
-        // }
+         if (class_exists('{{actualModelFullName}}') && class_exists($this->moduleNamespace . '\\Policies\\{{policyName}}::class')) {
+             Gate::policy('{{actualModelFullName}}'::class, $this->moduleNamespace . '\\Policies\\{{policyName}}::class');
+         }
         foreach ($this->policies as $model => $policy) {
             Gate::policy($model, $policy);
         }
@@ -128,8 +128,8 @@ class {{moduleName}}ServiceProvider extends ServiceProvider
     protected function registerObservers(): void
     {
         // Example:
-        // if (class_exists('{{actualModelFullName}}') && class_exists($this->moduleNamespace . '\\Observers\\{{observerName}}::class')) {
-        //      '{{actualModelFullName}}'::observe($this->moduleNamespace . '\\Observers\\{{observerName}}::class);
-        // }
+         if (class_exists('{{actualModelFullName}}') && class_exists($this->moduleNamespace . '\\Observers\\{{observerName}}::class')) {
+              '{{actualModelFullName}}'::observe($this->moduleNamespace . '\\Observers\\{{observerName}}::class');
+         }
     }
 }
